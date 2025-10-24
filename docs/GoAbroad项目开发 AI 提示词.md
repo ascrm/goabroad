@@ -286,7 +286,143 @@
 文件：src/components/layout/
 ```
 
+
+### 提示词 1.4 - 底部导航栏实现
 ---
+实现 GoAbroad App 的底部导航栏（完全按照设计文档 4.3.1 节）。
+
+**背景说明**：
+当前项目的 app/(tabs)/_layout.jsx 使用的是 Stack 导航，需要改为 Tabs 底部导航栏。
+同时需要创建 3 个缺失的 Tab 页面（planning、community、profile）。
+
+**设计规范**（严格遵守）：
+
+**1. 视觉规范**
+- 高度：iOS 60px，Android 56px
+- 图标大小：24px
+- 文字大小：12px，字重 Medium (500)
+- 激活颜色：Primary-600 (#2563EB)
+- 未激活颜色：Gray-400 (#9CA3AF)
+- 背景色：白色
+- 顶部边框：Gray-200，1px
+
+**2. 五个 Tab 配置**
+
+Tab 1 - 首页：
+- 图标：home（实心/空心切换）
+- 标题："首页"
+- 路由：app/(tabs)/index.jsx
+- 角标：无
+
+Tab 2 - 国家：
+- 图标：globe（实心/空心切换）
+- 标题："国家"
+- 路由：app/(tabs)/countries.jsx
+- 角标：无
+
+Tab 3 - 规划：
+- 图标：clipboard（实心/空心切换）
+- 标题："规划"
+- 路由：app/(tabs)/planning.jsx
+- 角标：显示待办任务数量（红色圆形，数字白色，>99 显示 99+）
+
+Tab 4 - 社区：
+- 图标：chatbubbles（实心/空心切换）
+- 标题："社区"
+- 路由：app/(tabs)/community.jsx
+- 角标：显示未读消息数量（红色圆形，数字白色）
+
+Tab 5 - 我的：
+- 图标：person（实心/空心切换）
+- 标题："我的"
+- 路由：app/(tabs)/profile.jsx
+- 角标：无
+
+**3. 交互行为**
+- 点击 Tab 切换页面，有平滑过渡动画
+- 选中状态：图标从空心变实心，文字和图标变为 Primary-600
+- 未选中状态：图标空心，文字和图标为 Gray-400
+- 角标数字从 Redux 状态中获取，实时更新
+- 角标样式：最小宽度 18px，高度 18px，圆形，字号 10px
+
+**4. 实现要求**
+
+**修改 app/(tabs)/_layout.jsx**：
+- 使用 Expo Router 的 Tabs 组件（不是 Stack）
+- 使用 @expo/vector-icons 的 Ionicons 图标库
+- 根据 Platform.OS 区分 iOS 和 Android 的高度和内边距
+- 从 Redux 的 ui slice 和 planning slice 获取角标数据
+- 为每个 Tab 配置：
+  * name（路由名称）
+  * title（显示标题）
+  * tabBarIcon（图标组件，根据 focused 状态切换实心/空心）
+  * tabBarBadge（角标数字，没有则不显示）
+  * tabBarBadgeStyle（角标样式）
+
+**创建缺失的 Tab 页面**：
+目前只有 index.jsx 和 countries.jsx，需要创建：
+
+1. app/(tabs)/planning.jsx
+   - 规划列表页面
+   - 现阶段先创建占位页面，显示"📋 规划"和"功能开发中..."
+   - 使用 Screen 布局组件包裹
+   - 背景色 Gray-50
+
+2. app/(tabs)/community.jsx
+   - 社区 Feed 流页面
+   - 现阶段先创建占位页面，显示"💬 社区"和"功能开发中..."
+   - 使用 Screen 布局组件包裹
+   - 背景色 Gray-50
+
+3. app/(tabs)/profile.jsx
+   - 个人中心页面
+   - 现阶段先创建占位页面，显示"👤 我的"和"功能开发中..."
+   - 使用 Screen 布局组件包裹
+   - 背景色 Gray-50
+
+**5. Redux 状态准备**
+
+在 src/store/slices/uiSlice.js 中添加：
+- unreadCount（未读消息数量，用于社区 Tab 角标）
+
+在 src/store/slices/planningSlice.js 中添加：
+- todoCount（待办任务数量，用于规划 Tab 角标）
+
+如果这些 slice 还不存在，先添加占位状态，初始值为 0。
+
+**6. 颜色常量引用**
+
+确保从 src/constants/colors.js 引入颜色：
+- colors.primary[600]
+- colors.gray[400]
+- colors.gray[200]
+- colors.white
+- colors.gray[50]
+- colors.error[500]
+
+**7. 测试验证**
+
+完成后需要验证：
+- ✅ 5 个 Tab 都能正常显示和切换
+- ✅ 图标在选中/未选中状态下正确变化
+- ✅ 文字颜色正确变化
+- ✅ 底部导航栏高度在 iOS 和 Android 上符合规范
+- ✅ 顶部边框显示正确
+- ✅ 角标（如果有数据）正确显示
+- ✅ 页面切换动画流畅
+
+**8. 注意事项**
+- 使用 Tabs 而不是 Stack
+- 图标必须支持实心/空心切换（outline 后缀）
+- 角标只在数值 > 0 时显示
+- 角标数字超过 99 显示为 "99+"
+- 确保 TabBar 在所有页面都可见（不被键盘遮挡）
+- iOS 底部有安全区域，需要额外的 paddingBottom
+
+请按照以上要求完整实现底部导航栏功能。
+
+
+
 
 ## 🎯 阶段 2: 认证系统开发
 

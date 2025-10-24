@@ -1,5 +1,5 @@
 /**
- * 首页
+ * Tabs 首页
  * 展示个性化推荐、我的计划、快捷工具等核心功能
  */
 
@@ -27,19 +27,6 @@ export default function Home() {
 
   // 模拟用户计划数据（设置为 null 来测试无计划状态）
   const [userPlan] = useState(null); // 改为 null 显示无计划状态
-  // const [userPlan] = useState({
-  //   id: '1',
-  //   name: '美国留学计划',
-  //   targetDate: '2026-09-01',
-  //   targetCountry: '美国留学',
-  //   completedTasks: 17,
-  //   totalTasks: 25,
-  //   upcomingTasks: [
-  //     { title: '准备托福考试', dueDate: '2024-12-15' },
-  //     { title: '撰写个人陈述', dueDate: '2024-12-20' },
-  //     { title: '联系推荐人', dueDate: '2024-12-25' },
-  //   ],
-  // });
 
   // 判断是否有计划
   const isHasPlan = userPlan !== null && userPlan !== undefined;
@@ -206,4 +193,3 @@ const styles = StyleSheet.create({
     height: 40,
   },
 });
-

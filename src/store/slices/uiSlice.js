@@ -44,6 +44,9 @@ const initialState = {
   
   // 语言设置
   language: 'zh-CN',
+  
+  // Tab 角标数据
+  unreadCount: 0, // 未读消息数量（社区 Tab）
 };
 
 // 创建 slice
@@ -127,6 +130,11 @@ const uiSlice = createSlice({
       state.language = action.payload;
     },
     
+    // 设置未读消息数量
+    setUnreadCount: (state, action) => {
+      state.unreadCount = action.payload;
+    },
+    
     // 重置 UI 状态
     resetUI: (state) => {
       return initialState;
@@ -146,6 +154,7 @@ export const {
   setKeyboardState,
   setTheme,
   setLanguage,
+  setUnreadCount,
   resetUI,
 } = uiSlice.actions;
 

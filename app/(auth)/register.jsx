@@ -125,7 +125,7 @@ const Register = () => {
       }, 1500);
       
     } catch (error) {
-      showToast('error', error?.message || error || '注册失败，请稍后重试');
+      showToast('error', error?.message);
     } finally {
       setLoading(false);
     }

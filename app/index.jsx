@@ -20,8 +20,8 @@ export default function Index() {
       if (isLoggedIn) {
         // 已登录，检查是否完成引导
         if (onboardingCompleted) {
-          // 完成引导，跳转到首页
-          router.replace('/(main)/home');
+          // 完成引导，跳转到 Tabs 首页
+          router.replace('/(tabs)');
         } else {
           // 未完成引导，跳转到引导页
           router.replace('/(auth)/interests');

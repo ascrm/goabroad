@@ -35,7 +35,7 @@ const initialState = {
  */
 export const loginUser = createAsyncThunk(
   'auth/loginUser',
-  async ({ account, password }) => {
+  async ({ account, password }, { rejectWithValue }) => {
     try {
       const response = await authApi.login({ account, password });
       

@@ -66,14 +66,14 @@ const Login = () => {
       setTimeout(() => {
         // 根据引导完成状态跳转
         if (onboardingCompleted) {
-          router.replace('/(main)/home');
+          router.replace('/(tabs)');
         } else {
           router.replace('/(auth)/interests');
         }
       }, 1000);
       
     } catch (error) {
-      showToast('error', error || '登录失败，请检查账号密码');
+      showToast('error', error?.message);
     } finally {
       setLoading(false);
     }

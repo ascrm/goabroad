@@ -24,6 +24,9 @@ const initialState = {
   // 任务列表
   tasks: [],
   
+  // 待办任务数量（用于 Tab 角标）
+  todoCount: 0,
+  
   // 加载状态
   loading: false,
   error: null,
@@ -55,6 +58,11 @@ const planningSlice = createSlice({
       state.tasks = action.payload;
     },
     
+    // 设置待办任务数量
+    setTodoCount: (state, action) => {
+      state.todoCount = action.payload;
+    },
+    
     clearError: (state) => {
       state.error = null;
     },
@@ -68,6 +76,7 @@ export const {
   setTimeline,
   setMaterials,
   setTasks,
+  setTodoCount,
   clearError,
 } = planningSlice.actions;
 

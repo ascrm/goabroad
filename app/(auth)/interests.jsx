@@ -125,7 +125,7 @@ export default function Interests() {
         currentStatus: null,
       }
     }));
-    router.replace('/(main)/home');
+    router.replace('/(tabs)');
   };
 
   // 完成设置
@@ -141,8 +141,8 @@ export default function Interests() {
       }
     }));
     
-    // 跳转到首页
-    router.replace('/(main)/home');
+    // 跳转到 Tabs 首页
+    router.replace('/(tabs)');
   };
 
   // 渲染进度条

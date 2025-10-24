@@ -9,13 +9,13 @@ import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 import { Button, Input, Toast } from '@/src/components';
@@ -117,7 +117,7 @@ const ForgotPassword = () => {
       }, 1500);
       
     } catch (error) {
-      showToast('error', error || '重置失败，请稍后重试');
+      showToast('error', error?.message);
     } finally {
       setLoading(false);
     }
