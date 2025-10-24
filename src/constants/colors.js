@@ -146,6 +146,9 @@ export const colors = {
   border,
   status,
   special,
+  // 常用颜色快捷方式
+  white: '#FFFFFF',
+  black: '#000000',
 };
 
 export default colors;
