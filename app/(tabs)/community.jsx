@@ -4,29 +4,145 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import {
+    Pressable,
+    SafeAreaView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
+} from 'react-native';
+import { useDispatch, useSelector } from 'react-redux';
 
+import CategorySelector from '@/src/components/community/CategorySelector';
+import FeedList from '@/src/components/community/FeedList';
 import { COLORS } from '@/src/constants';
+import { setActiveTab } from '@/src/store/slices/communitySlice';
+
+const TABS = [
+  { id: 'recommend', label: '推荐' },
+  { id: 'following', label: '关注' },
+  { id: 'country', label: '国家' },
+  { id: 'stage', label: '阶段' },
+];
 
 export default function Community() {
+  const router = useRouter();
+  const dispatch = useDispatch();
+  const activeTab = useSelector((state) => state.community.activeTab);
+  const [showPublishMenu, setShowPublishMenu] = useState(false);
+
+  // 切换 Tab
+  const handleTabChange = (tabId) => {
+    dispatch(setActiveTab(tabId));
+  };
+
+  // 发布按钮菜单
+  const handlePublish = (type) => {
+    setShowPublishMenu(false);
+    // 导航到发布页面
+    router.push('/community/create');
+  };
+
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
       
-      {/* 占位内容 */}
-      <View style={styles.content}>
-        <View style={styles.iconContainer}>
-          <Ionicons name="chatbubbles" size={80} color={COLORS.primary[600]} />
-        </View>
-        <Text style={styles.title}>💬 社区</Text>
-        <Text style={styles.subtitle}>功能开发中...</Text>
-        <Text style={styles.description}>
-          这里将展示社区动态、帖子列表、问答互动等内容
-        </Text>
+      {/* 顶部 Tab 栏 */}
+      <View style={styles.tabBar}>
+        {TABS.map((tab) => (
+          <TouchableOpacity
+            key={tab.id}
+            style={styles.tabButton}
+            onPress={() => handleTabChange(tab.id)}
+            activeOpacity={0.7}
+          >
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === tab.id && styles.tabTextActive,
+              ]}
+            >
+              {tab.label}
+            </Text>
+            {activeTab === tab.id && <View style={styles.tabIndicator} />}
+          </TouchableOpacity>
+        ))}
       </View>
-    </View>
+
+      {/* 分类选择器（仅在国家和阶段 Tab 显示） */}
+      {(activeTab === 'country' || activeTab === 'stage') && (
+        <CategorySelector type={activeTab} />
+      )}
+
+      {/* Feed 流列表 */}
+      <FeedList tab={activeTab} />
+
+      {/* 右下角悬浮发布按钮 */}
+      <View style={styles.fabContainer}>
+        {showPublishMenu && (
+          <>
+            {/* 遮罩 */}
+            <Pressable
+              style={styles.fabOverlay}
+              onPress={() => setShowPublishMenu(false)}
+            />
+            
+            {/* 菜单选项 */}
+            <View style={styles.fabMenu}>
+              <TouchableOpacity
+                style={styles.fabMenuItem}
+                onPress={() => handlePublish('post')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.fabMenuIcon}>
+                  <Ionicons name="document-text" size={20} color={COLORS.primary[600]} />
+                </View>
+                <Text style={styles.fabMenuText}>发帖</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.fabMenuItem}
+                onPress={() => handlePublish('question')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.fabMenuIcon}>
+                  <Ionicons name="help-circle" size={20} color={COLORS.info[600]} />
+                </View>
+                <Text style={styles.fabMenuText}>提问</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.fabMenuItem}
+                onPress={() => handlePublish('video')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.fabMenuIcon}>
+                  <Ionicons name="videocam" size={20} color={COLORS.error[600]} />
+                </View>
+                <Text style={styles.fabMenuText}>视频</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
+
+        {/* 主按钮 */}
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={() => setShowPublishMenu(!showPublishMenu)}
+          activeOpacity={0.8}
+        >
+          <Ionicons
+            name={showPublishMenu ? 'close' : 'add'}
+            size={28}
+            color={COLORS.white}
+          />
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
   );
 }
 
@@ -35,31 +151,99 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.gray[50],
   },
-  content: {
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.white,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border.light,
+    paddingHorizontal: 16,
+  },
+  tabButton: {
     flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 32,
+    paddingVertical: 16,
+    position: 'relative',
   },
-  iconContainer: {
-    marginBottom: 24,
+  tabText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: COLORS.text.secondary,
   },
-  title: {
-    fontSize: 28,
+  tabTextActive: {
+    fontSize: 16,
     fontWeight: '700',
     color: COLORS.text.primary,
-    marginBottom: 8,
   },
-  subtitle: {
-    fontSize: 16,
-    color: COLORS.text.secondary,
-    marginBottom: 16,
+  tabIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    left: '25%',
+    right: '25%',
+    height: 3,
+    backgroundColor: COLORS.primary[500],
+    borderRadius: 2,
   },
-  description: {
-    fontSize: 14,
-    color: COLORS.text.tertiary,
-    textAlign: 'center',
-    lineHeight: 20,
+  fabContainer: {
+    position: 'absolute',
+    right: 16,
+    bottom: 24,
+  },
+  fabOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: 1000,
+    height: 1000,
+    transform: [{ translateX: -1000 + 56 }, { translateY: -1000 + 56 }],
+  },
+  fabMenu: {
+    position: 'absolute',
+    bottom: 72,
+    right: 0,
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    paddingVertical: 8,
+    minWidth: 120,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  fabMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  fabMenuIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.gray[100],
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  fabMenuText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: COLORS.text.primary,
+  },
+  fab: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: COLORS.primary[500],
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
 });
 

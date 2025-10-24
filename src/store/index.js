@@ -12,6 +12,7 @@ import authSlice from './slices/authSlice';
 import communitySlice from './slices/communitySlice';
 import countriesSlice from './slices/countriesSlice';
 import planningSlice from './slices/planningSlice';
+import profileSlice from './slices/profileSlice';
 import toolsSlice from './slices/toolsSlice';
 import uiSlice from './slices/uiSlice';
 import userSlice from './slices/userSlice';
@@ -44,6 +45,7 @@ const rootReducer = combineReducers({
   countries: countriesSlice,
   planning: planningSlice,
   community: communitySlice,
+  profile: profileSlice,
   tools: toolsSlice,
   ui: uiSlice,
 });
