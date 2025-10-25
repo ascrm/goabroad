@@ -6,15 +6,16 @@
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-    Alert,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 
@@ -22,18 +23,20 @@ import MembershipCard from '@/src/components/profile/MembershipCard';
 import MenuList from '@/src/components/profile/MenuList';
 import UserHeader from '@/src/components/profile/UserHeader';
 import { COLORS } from '@/src/constants';
+import { useUser } from '@/src/hooks/useUser';
+import { logoutUser, selectAuthUserInfo } from '@/src/store/slices/authSlice';
 import {
-    selectMembership,
-    selectStats,
-    selectUserInfo,
-    setMembership,
-    setUserInfo,
-    updateAvatar,
-    updateGeneral,
-    updateNotifications,
-    updatePrivacy,
-    updateSecurity,
-    updateStats,
+  selectMembership,
+  selectStats,
+  selectUserInfo,
+  setMembership,
+  setUserInfo,
+  updateAvatar as updateAvatarAction,
+  updateGeneral,
+  updateNotifications,
+  updatePrivacy,
+  updateSecurity,
+  updateStats,
 } from '@/src/store/slices/profileSlice';
 import { initializeMockProfileData } from '@/src/utils/mockProfileData';
 
@@ -41,25 +44,81 @@ export default function Profile() {
   const router = useRouter();
   const dispatch = useDispatch();
   
+  // 使用用户 API Hook
+  const {
+    profile,
+    stats: apiStats,
+    loading,
+    error,
+    getUserProfile,
+    uploadAvatar: uploadAvatarApi,
+  } = useUser();
+  
+  const authUser = useSelector(selectAuthUserInfo);
   const userInfo = useSelector(selectUserInfo);
   const membership = useSelector(selectMembership);
   const stats = useSelector(selectStats);
   
   const [uploading, setUploading] = useState(false);
 
-  // 初始化 mock 数据（仅在开发环境）
-  React.useEffect(() => {
-    if (__DEV__ && !userInfo.id) {
-      initializeMockProfileData(dispatch, {
-        setUserInfo,
-        setMembership,
-        updateStats,
-        updateSecurity,
-        updatePrivacy,
-        updateNotifications,
-        updateGeneral,
-      });
-    }
+  // 初始化：加载用户资料
+  useEffect(() => {
+    const initializeProfile = async () => {
+      // 如果有认证用户ID，从 API 获取最新资料
+      if (authUser?.id) {
+        const result = await getUserProfile(authUser.id);
+        
+        if (result.payload) {
+          // 更新 Redux 状态
+          dispatch(setUserInfo({
+            id: result.payload.id,
+            avatar: result.payload.avatar,
+            nickname: result.payload.nickname,
+            signature: result.payload.bio,
+            level: result.payload.level,
+            experience: result.payload.experience || 0,
+            experienceMax: 1000,
+          }));
+          
+          // 更新统计数据
+          if (result.payload.stats) {
+            dispatch(updateStats({
+              postsCount: result.payload.stats.postsCount || 0,
+              favoritesCount: result.payload.stats.favoritesCount || 0,
+              likesCount: result.payload.stats.likesCount || 0,
+              followersCount: result.payload.stats.followersCount || 0,
+              followingCount: result.payload.stats.followingCount || 0,
+            }));
+          }
+        } else if (__DEV__ && !userInfo.id) {
+          // 开发环境 API 失败回退到 mock 数据
+          console.log('API 获取用户资料失败，使用 Mock 数据');
+          initializeMockProfileData(dispatch, {
+            setUserInfo,
+            setMembership,
+            updateStats,
+            updateSecurity,
+            updatePrivacy,
+            updateNotifications,
+            updateGeneral,
+          });
+        }
+      } else if (__DEV__ && !userInfo.id) {
+        // 开发环境没有认证用户时使用 mock 数据
+        console.log('未找到认证用户，使用 Mock 数据');
+        initializeMockProfileData(dispatch, {
+          setUserInfo,
+          setMembership,
+          updateStats,
+          updateSecurity,
+          updatePrivacy,
+          updateNotifications,
+          updateGeneral,
+        });
+      }
+    };
+    
+    initializeProfile();
   }, []);
 
   // 编辑头像
@@ -123,13 +182,30 @@ export default function Profile() {
   const uploadAvatar = async (uri) => {
     setUploading(true);
     try {
-      // TODO: 调用 API 上传头像
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      dispatch(updateAvatar(uri));
-      Alert.alert('成功', '头像更新成功');
+      // 准备文件数据
+      const filename = uri.split('/').pop();
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : 'image/jpeg';
+      
+      const file = {
+        uri,
+        name: filename,
+        type,
+      };
+      
+      // 调用 API 上传头像
+      const result = await uploadAvatarApi(file);
+      
+      if (result.payload) {
+        // 更新本地状态
+        dispatch(updateAvatarAction(result.payload.avatar));
+        Alert.alert('成功', '头像更新成功');
+      } else {
+        throw new Error(result.error?.message || '上传失败');
+      }
     } catch (error) {
       console.error('上传头像失败:', error);
-      Alert.alert('失败', '上传头像失败，请重试');
+      Alert.alert('失败', error.message || '上传头像失败，请重试');
     } finally {
       setUploading(false);
     }
@@ -293,13 +369,33 @@ export default function Profile() {
       {
         text: '退出',
         style: 'destructive',
-        onPress: () => {
-          // TODO: 清除登录状态，跳转到登录页
-          Alert.alert('提示', '退出登录功能开发中');
+        onPress: async () => {
+          try {
+            // 调用退出登录接口
+            await dispatch(logoutUser()).unwrap();
+            // 跳转到登录页
+            router.replace('/(auth)/login');
+          } catch (error) {
+            // 即使退出失败，也会清除本地状态并跳转登录页
+            console.error('退出登录失败:', error);
+            router.replace('/(auth)/login');
+          }
         },
       },
     ]);
   };
+
+  // 显示加载状态
+  if (loading && !userInfo.id) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={COLORS.primary[600]} />
+          <Text style={styles.loadingText}>加载中...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -319,6 +415,7 @@ export default function Profile() {
           experienceMax={userInfo.experienceMax}
           onEditPress={handleEditProfile}
           onAvatarPress={handleAvatarPress}
+          uploading={uploading}
         />
 
         {/* 会员卡片 */}
@@ -429,5 +526,15 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '500',
     color: COLORS.error[600],
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: COLORS.gray[600],
   },
 });

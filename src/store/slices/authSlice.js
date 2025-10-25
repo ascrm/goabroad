@@ -40,10 +40,10 @@ export const loginUser = createAsyncThunk(
       const response = await authApi.login({ account, password });
       
       return {
-        token: response?.token,
-        refreshToken: response?.refreshToken,
-        userInfo: response?.user || response?.userInfo,
-        expiresIn: response?.expiresIn || 3600,
+        token: response?.data?.token,
+        refreshToken: response?.data?.refreshToken || null,
+        userInfo: response?.data?.user || response?.data?.userInfo,
+        expiresIn: response?.data?.tokenTimeout || 2592000, // 默认30天
       };
     } catch (error) {
       return rejectWithValue(error.message || '登录失败');
@@ -61,10 +61,10 @@ export const registerUser = createAsyncThunk(
       const response = await authApi.register(userData);
       
       return {
-        token: response?.token,
-        refreshToken: response?.refreshToken,
-        userInfo: response?.user || response?.userInfo,
-        expiresIn: response?.expiresIn || 3600,
+        token: response?.data?.token,
+        refreshToken: response?.data?.refreshToken || null,
+        userInfo: response?.data?.user || null, // 注册接口可能不返回用户信息
+        expiresIn: response?.data?.tokenTimeout || 2592000, // 默认30天
       };
     } catch (error) {
       return rejectWithValue(error.message || '注册失败');
@@ -90,6 +90,7 @@ export const logoutUser = createAsyncThunk(
 
 /**
  * 刷新访问令牌
+ * @note Sa-Token 默认有效期30天，后端暂未实现此接口
  */
 export const refreshToken = createAsyncThunk(
   'auth/refreshToken',
@@ -103,9 +104,9 @@ export const refreshToken = createAsyncThunk(
       const response = await authApi.refreshAccessToken(auth.refreshToken);
       
       return {
-        token: response.data.token,
-        refreshToken: response.data.refreshToken,
-        expiresIn: response.data.expiresIn || 3600,
+        token: response?.data?.token,
+        refreshToken: response?.data?.refreshToken,
+        expiresIn: response?.data?.tokenTimeout || 2592000,
       };
     } catch (error) {
       return rejectWithValue(error.message || 'Token 刷新失败');
@@ -230,7 +231,15 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addCase(logoutUser.rejected, (state, action) => {
+        // 即使后端登出失败，前端也要清除状态
         state.loading = false;
+        state.isLoggedIn = false;
+        state.token = null;
+        state.refreshToken = null;
+        state.userInfo = null;
+        state.loginTime = null;
+        state.tokenExpiry = null;
+        state.loginMethod = null;
         state.error = action.payload;
       })
       
@@ -261,6 +270,13 @@ const authSlice = createSlice({
 
 // 导出 actions
 export const { clearError, setLoginMethod, setAuthState, clearAuth } = authSlice.actions;
+
+// Selectors
+export const selectAuthUserInfo = (state) => state.auth.userInfo;
+export const selectIsLoggedIn = (state) => state.auth.isLoggedIn;
+export const selectAuthToken = (state) => state.auth.token;
+export const selectAuthLoading = (state) => state.auth.loading;
+export const selectAuthError = (state) => state.auth.error;
 
 // 导出 reducer
 export default authSlice.reducer;

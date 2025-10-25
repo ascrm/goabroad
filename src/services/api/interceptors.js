@@ -12,6 +12,8 @@ import apiClient, { clearAuthToken, getAuthToken } from './client';
 let isRefreshing = false;
 // 待重试的请求队列
 let refreshSubscribers = [];
+// 请求重试次数限制
+const MAX_RETRY_COUNT = 1;
 
 /**
  * 添加请求到队列
@@ -38,10 +40,9 @@ apiClient.interceptors.request.use(
     // 添加请求元数据（用于计算耗时）
     config.metadata = { startTime: Date.now() };
     
-    // 添加 token 到请求头
     const token = await getAuthToken();
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+      config.headers.Authorization = token;
     }
     
     return config;
@@ -82,19 +83,25 @@ apiClient.interceptors.response.use(
     
     const { status, data } = error.response;
     
+    // 初始化重试计数器
+    if (!originalRequest._retryCount) {
+      originalRequest._retryCount = 0;
+    }
+    
     // 处理 401 未授权错误（token 过期）
-    if (status === 401 && !originalRequest._retry) {
+    if (status === 401 && originalRequest._retryCount < MAX_RETRY_COUNT) {
       if (isRefreshing) {
         // 如果正在刷新 token，将请求加入队列
-        return new Promise((resolve) => {
+        return new Promise((resolve, reject) => {
           subscribeTokenRefresh((token) => {
-            originalRequest.headers.Authorization = `Bearer ${token}`;
+            originalRequest.headers.Authorization = token;
+            originalRequest._retryCount++;
             resolve(apiClient(originalRequest));
           });
         });
       }
       
-      originalRequest._retry = true;
+      originalRequest._retryCount++;
       isRefreshing = true;
       
       try {
@@ -102,8 +109,8 @@ apiClient.interceptors.response.use(
         const result = await store.dispatch(refreshAuthToken()).unwrap();
         const newToken = result.token;
         
-        // 更新请求头中的 token
-        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        // 更新请求头中的 token（Sa-Token 直接传token值）
+        originalRequest.headers.Authorization = newToken;
         
         // 执行队列中的请求
         onTokenRefreshed(newToken);

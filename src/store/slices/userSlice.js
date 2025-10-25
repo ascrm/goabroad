@@ -5,12 +5,15 @@
 
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 
+import userApi from '@/src/services/api/modules/userApi';
+
 // 初始状态
 const initialState = {
   // 用户资料
   profile: {
     id: null,
-    name: '',
+    username: '',
+    nickname: '',
     email: '',
     phone: '',
     avatar: null,
@@ -20,6 +23,22 @@ const initialState = {
     gender: null,
     nationality: '',
     language: 'zh-CN',
+    level: 1,
+    status: 'ACTIVE',
+    badges: [],
+    targetCountry: null,
+    targetType: null,
+    targetDate: null,
+    currentStatus: null,
+  },
+  
+  // 用户统计信息
+  stats: {
+    postsCount: 0,
+    followersCount: 0,
+    followingCount: 0,
+    likesCount: 0,
+    collectCount: 0,
   },
   
   // 用户偏好
@@ -36,12 +55,6 @@ const initialState = {
       showEmail: false,
       showPhone: false,
     },
-    study: {
-      targetCountry: null,
-      studyLevel: null,
-      startDate: null,
-      budget: null,
-    },
     // 首次登录引导数据
     onboarding: {
       completed: false,
@@ -53,17 +66,31 @@ const initialState = {
   },
   
   // 用户等级和积分
-  level: 1,
   points: 0,
   experience: 0,
   
-  // 统计信息
-  stats: {
-    loginDays: 0,
-    studyDays: 0,
-    completedTasks: 0,
-    communityPosts: 0,
-    communityLikes: 0,
+  // 用户内容数据
+  posts: {
+    items: [],
+    pagination: null,
+    loading: false,
+  },
+  favorites: {
+    items: [],
+    pagination: null,
+    loading: false,
+  },
+  
+  // 关注关系
+  following: {
+    items: [],
+    pagination: null,
+    loading: false,
+  },
+  followers: {
+    items: [],
+    pagination: null,
+    loading: false,
   },
   
   // 加载状态
@@ -71,80 +98,171 @@ const initialState = {
   error: null,
 };
 
-// 异步 thunks
+// ==================== 异步 Thunks ====================
+
+// 获取用户资料（可以是当前用户或其他用户）
 export const fetchUserProfile = createAsyncThunk(
   'user/fetchUserProfile',
-  async (_, { rejectWithValue }) => {
+  async (userId, { rejectWithValue }) => {
     try {
-      // TODO: 实现实际的获取用户资料 API 调用
-      const response = await new Promise((resolve) => {
-        setTimeout(() => {
-          resolve({
-            id: '1',
-            name: '测试用户',
-            email: 'test@example.com',
-            phone: '+86 138****8888',
-            avatar: null,
-            bio: '正在准备出国留学',
-            location: '北京',
-            birthday: '1995-01-01',
-            gender: 'male',
-            nationality: '中国',
-            language: 'zh-CN',
-          });
-        }, 500);
-      });
-      
-      return response;
+      const response = await userApi.getUserProfile(userId);
+      return response.data;
     } catch (error) {
-      return rejectWithValue(error.message);
+      return rejectWithValue(error.response?.data?.message || error.message);
     }
   }
 );
 
+// 更新当前用户资料
 export const updateUserProfile = createAsyncThunk(
   'user/updateUserProfile',
   async (profileData, { rejectWithValue }) => {
     try {
-      // TODO: 实现实际的更新用户资料 API 调用
-      return profileData;
+      const response = await userApi.updateUserProfile(profileData);
+      return response.data;
     } catch (error) {
-      return rejectWithValue(error.message);
+      return rejectWithValue(error.response?.data?.message || error.message);
     }
   }
 );
 
+// 上传头像
+export const uploadUserAvatar = createAsyncThunk(
+  'user/uploadUserAvatar',
+  async (file, { rejectWithValue }) => {
+    try {
+      const response = await userApi.uploadAvatar(file);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || error.message);
+    }
+  }
+);
+
+// 获取用户发布的帖子
+export const fetchUserPosts = createAsyncThunk(
+  'user/fetchUserPosts',
+  async ({ userId, page = 1, pageSize = 20, type = 'all' }, { rejectWithValue }) => {
+    try {
+      const response = await userApi.getUserPosts(userId, { page, pageSize, type });
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || error.message);
+    }
+  }
+);
+
+// 获取用户收藏的帖子
+export const fetchUserFavorites = createAsyncThunk(
+  'user/fetchUserFavorites',
+  async ({ page = 1, pageSize = 20 } = {}, { rejectWithValue }) => {
+    try {
+      const response = await userApi.getUserFavorites({ page, pageSize });
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || error.message);
+    }
+  }
+);
+
+// 关注用户
+export const followUser = createAsyncThunk(
+  'user/followUser',
+  async (userId, { rejectWithValue }) => {
+    try {
+      const response = await userApi.followUser(userId);
+      return { userId, data: response.data };
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || error.message);
+    }
+  }
+);
+
+// 取消关注用户
+export const unfollowUser = createAsyncThunk(
+  'user/unfollowUser',
+  async (userId, { rejectWithValue }) => {
+    try {
+      const response = await userApi.unfollowUser(userId);
+      return { userId, data: response.data };
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || error.message);
+    }
+  }
+);
+
+// 获取关注列表
+export const fetchUserFollowing = createAsyncThunk(
+  'user/fetchUserFollowing',
+  async ({ userId, page = 1, pageSize = 20 }, { rejectWithValue }) => {
+    try {
+      const response = await userApi.getUserFollowing(userId, { page, pageSize });
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || error.message);
+    }
+  }
+);
+
+// 获取粉丝列表
+export const fetchUserFollowers = createAsyncThunk(
+  'user/fetchUserFollowers',
+  async ({ userId, page = 1, pageSize = 20 }, { rejectWithValue }) => {
+    try {
+      const response = await userApi.getUserFollowers(userId, { page, pageSize });
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || error.message);
+    }
+  }
+);
+
+// 检查关注状态
+export const checkFollowStatus = createAsyncThunk(
+  'user/checkFollowStatus',
+  async (userId, { rejectWithValue }) => {
+    try {
+      const response = await userApi.checkFollowStatus(userId);
+      return { userId, isFollowing: response.data.isFollowing };
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || error.message);
+    }
+  }
+);
+
+// 搜索用户
+export const searchUsers = createAsyncThunk(
+  'user/searchUsers',
+  async ({ keyword, page = 1, pageSize = 20 }, { rejectWithValue }) => {
+    try {
+      const response = await userApi.searchUsers({ keyword, page, pageSize });
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || error.message);
+    }
+  }
+);
+
+// 批量获取用户信息
+export const fetchBatchUsers = createAsyncThunk(
+  'user/fetchBatchUsers',
+  async (userIds, { rejectWithValue }) => {
+    try {
+      const response = await userApi.getBatchUsers(userIds);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || error.message);
+    }
+  }
+);
+
+// 更新用户偏好（本地存储）
 export const updateUserPreferences = createAsyncThunk(
   'user/updateUserPreferences',
   async (preferences, { rejectWithValue }) => {
     try {
-      // TODO: 实现实际的更新用户偏好 API 调用
+      // 这里只是本地存储，不调用API
       return preferences;
-    } catch (error) {
-      return rejectWithValue(error.message);
-    }
-  }
-);
-
-export const uploadAvatar = createAsyncThunk(
-  'user/uploadAvatar',
-  async (avatarFile, { rejectWithValue }) => {
-    try {
-      // TODO: 实现实际的头像上传 API 调用
-      const avatarUrl = `https://example.com/avatars/${Date.now()}.jpg`;
-      return avatarUrl;
-    } catch (error) {
-      return rejectWithValue(error.message);
-    }
-  }
-);
-
-export const updateUserStats = createAsyncThunk(
-  'user/updateUserStats',
-  async (stats, { rejectWithValue }) => {
-    try {
-      // TODO: 实现实际的更新用户统计 API 调用
-      return stats;
     } catch (error) {
       return rejectWithValue(error.message);
     }
@@ -176,8 +294,8 @@ const userSlice = createSlice({
       state.points += action.payload;
       // 简单的等级计算（每100积分升一级）
       const newLevel = Math.floor(state.points / 100) + 1;
-      if (newLevel > state.level) {
-        state.level = newLevel;
+      if (newLevel > state.profile.level) {
+        state.profile.level = newLevel;
       }
     },
     
@@ -187,18 +305,28 @@ const userSlice = createSlice({
     },
     
     // 更新统计信息
-    updateStats: (state, action) => {
+    updateStatsLocal: (state, action) => {
       state.stats = { ...state.stats, ...action.payload };
     },
     
     // 重置用户数据
-    resetUser: (state) => {
+    resetUser: () => {
       return initialState;
+    },
+    
+    // 清空帖子列表
+    clearPosts: (state) => {
+      state.posts = initialState.posts;
+    },
+    
+    // 清空收藏列表
+    clearFavorites: (state) => {
+      state.favorites = initialState.favorites;
     },
   },
   extraReducers: (builder) => {
     builder
-      // 获取用户资料
+      // ============ 获取用户资料 ============
       .addCase(fetchUserProfile.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -206,6 +334,10 @@ const userSlice = createSlice({
       .addCase(fetchUserProfile.fulfilled, (state, action) => {
         state.loading = false;
         state.profile = { ...state.profile, ...action.payload };
+        // 如果返回了统计信息，也更新stats
+        if (action.payload.stats) {
+          state.stats = { ...state.stats, ...action.payload.stats };
+        }
         state.error = null;
       })
       .addCase(fetchUserProfile.rejected, (state, action) => {
@@ -213,7 +345,7 @@ const userSlice = createSlice({
         state.error = action.payload;
       })
       
-      // 更新用户资料
+      // ============ 更新用户资料 ============
       .addCase(updateUserProfile.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -228,27 +360,135 @@ const userSlice = createSlice({
         state.error = action.payload;
       })
       
-      // 更新用户偏好
-      .addCase(updateUserPreferences.fulfilled, (state, action) => {
-        state.preferences = { ...state.preferences, ...action.payload };
-      })
-      
-      // 上传头像
-      .addCase(uploadAvatar.pending, (state) => {
+      // ============ 上传头像 ============
+      .addCase(uploadUserAvatar.pending, (state) => {
         state.loading = true;
+        state.error = null;
       })
-      .addCase(uploadAvatar.fulfilled, (state, action) => {
+      .addCase(uploadUserAvatar.fulfilled, (state, action) => {
         state.loading = false;
-        state.profile.avatar = action.payload;
+        // action.payload 包含 { avatar, thumbnail }
+        if (action.payload.avatar) {
+          state.profile.avatar = action.payload.avatar;
+        }
+        state.error = null;
       })
-      .addCase(uploadAvatar.rejected, (state, action) => {
+      .addCase(uploadUserAvatar.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })
       
-      // 更新用户统计
-      .addCase(updateUserStats.fulfilled, (state, action) => {
-        state.stats = { ...state.stats, ...action.payload };
+      // ============ 获取用户帖子 ============
+      .addCase(fetchUserPosts.pending, (state) => {
+        state.posts.loading = true;
+      })
+      .addCase(fetchUserPosts.fulfilled, (state, action) => {
+        state.posts.loading = false;
+        const { items, pagination } = action.payload;
+        
+        // 如果是第一页，替换；否则追加
+        if (pagination.currentPage === 1) {
+          state.posts.items = items;
+        } else {
+          state.posts.items = [...state.posts.items, ...items];
+        }
+        state.posts.pagination = pagination;
+      })
+      .addCase(fetchUserPosts.rejected, (state, action) => {
+        state.posts.loading = false;
+        state.error = action.payload;
+      })
+      
+      // ============ 获取用户收藏 ============
+      .addCase(fetchUserFavorites.pending, (state) => {
+        state.favorites.loading = true;
+      })
+      .addCase(fetchUserFavorites.fulfilled, (state, action) => {
+        state.favorites.loading = false;
+        const { items, pagination } = action.payload;
+        
+        // 如果是第一页，替换；否则追加
+        if (pagination.currentPage === 1) {
+          state.favorites.items = items;
+        } else {
+          state.favorites.items = [...state.favorites.items, ...items];
+        }
+        state.favorites.pagination = pagination;
+      })
+      .addCase(fetchUserFavorites.rejected, (state, action) => {
+        state.favorites.loading = false;
+        state.error = action.payload;
+      })
+      
+      // ============ 关注用户 ============
+      .addCase(followUser.fulfilled, (state, action) => {
+        const { data } = action.payload;
+        // 更新关注数
+        if (data.followersCount !== undefined) {
+          state.stats.followingCount = (state.stats.followingCount || 0) + 1;
+        }
+      })
+      .addCase(followUser.rejected, (state, action) => {
+        state.error = action.payload;
+      })
+      
+      // ============ 取消关注用户 ============
+      .addCase(unfollowUser.fulfilled, (state, action) => {
+        const { data } = action.payload;
+        // 更新关注数
+        if (data.followersCount !== undefined) {
+          state.stats.followingCount = Math.max(0, (state.stats.followingCount || 0) - 1);
+        }
+      })
+      .addCase(unfollowUser.rejected, (state, action) => {
+        state.error = action.payload;
+      })
+      
+      // ============ 获取关注列表 ============
+      .addCase(fetchUserFollowing.pending, (state) => {
+        state.following.loading = true;
+      })
+      .addCase(fetchUserFollowing.fulfilled, (state, action) => {
+        state.following.loading = false;
+        const { items, pagination } = action.payload;
+        
+        // 如果是第一页，替换；否则追加
+        if (pagination.currentPage === 1) {
+          state.following.items = items;
+        } else {
+          state.following.items = [...state.following.items, ...items];
+        }
+        state.following.pagination = pagination;
+      })
+      .addCase(fetchUserFollowing.rejected, (state, action) => {
+        state.following.loading = false;
+        state.error = action.payload;
+      })
+      
+      // ============ 获取粉丝列表 ============
+      .addCase(fetchUserFollowers.pending, (state) => {
+        state.followers.loading = true;
+      })
+      .addCase(fetchUserFollowers.fulfilled, (state, action) => {
+        state.followers.loading = false;
+        const { items, pagination } = action.payload;
+        
+        // 如果是第一页，替换；否则追加
+        if (pagination.currentPage === 1) {
+          state.followers.items = items;
+        } else {
+          state.followers.items = [...state.followers.items, ...items];
+        }
+        state.followers.pagination = pagination;
+      })
+      .addCase(fetchUserFollowers.rejected, (state, action) => {
+        state.followers.loading = false;
+        state.error = action.payload;
+      })
+      
+      // ============ 更新用户偏好 ============
+      .addCase(updateUserPreferences.fulfilled, (state, action) => {
+        state.preferences = { ...state.preferences, ...action.payload };
       });
   },
 });
@@ -260,9 +500,22 @@ export const {
   updatePreferencesLocal,
   addPoints,
   addExperience,
-  updateStats,
+  updateStatsLocal,
   resetUser,
+  clearPosts,
+  clearFavorites,
 } = userSlice.actions;
+
+// 导出选择器（Selectors）
+export const selectUserProfile = (state) => state.user.profile;
+export const selectUserStats = (state) => state.user.stats;
+export const selectUserPreferences = (state) => state.user.preferences;
+export const selectUserPosts = (state) => state.user.posts;
+export const selectUserFavorites = (state) => state.user.favorites;
+export const selectUserFollowing = (state) => state.user.following;
+export const selectUserFollowers = (state) => state.user.followers;
+export const selectUserLoading = (state) => state.user.loading;
+export const selectUserError = (state) => state.user.error;
 
 // 导出 reducer
 export default userSlice.reducer;

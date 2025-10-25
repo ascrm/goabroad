@@ -6,9 +6,9 @@
 import apiClient, { clearAuthToken, setAuthToken } from '../client';
 
 /**
- * 用户登录（邮箱密码）
+ * 用户登录（手机号/邮箱 + 密码）
  * @param {Object} credentials - 登录凭证
- * @param {string} credentials.email - 邮箱
+ * @param {string} credentials.account - 手机号或邮箱
  * @param {string} credentials.password - 密码
  * @returns {Promise<Object>} 登录响应数据
  */
@@ -18,9 +18,9 @@ export const login = async ({ account, password }) => {
     password,
   });
   
-  // 登录成功后保存 token
-  if (response.token) {
-    await setAuthToken(response.token);
+  // 登录成功后保存 token（响应结构：response.data.token）
+  if (response?.data?.token) {
+    await setAuthToken(response.data.token);
   }
   
   return response;
@@ -32,6 +32,7 @@ export const login = async ({ account, password }) => {
  * @param {string} credentials.phone - 手机号
  * @param {string} credentials.code - 验证码
  * @returns {Promise<Object>} 登录响应数据
+ * @note 此接口后端暂未实现
  */
 export const loginByPhone = async ({ phone, code }) => {
   const response = await apiClient.post('/auth/login/phone', {
@@ -39,8 +40,8 @@ export const loginByPhone = async ({ phone, code }) => {
     code,
   });
   
-  if (response.token) {
-    await setAuthToken(response.token);
+  if (response?.data?.token) {
+    await setAuthToken(response.data.token);
   }
   
   return response;
@@ -49,18 +50,20 @@ export const loginByPhone = async ({ phone, code }) => {
 /**
  * 用户注册
  * @param {Object} userData - 用户注册信息
- * @param {string} userData.email - 邮箱
- * @param {string} userData.password - 密码
- * @param {string} userData.name - 姓名
- * @param {string} [userData.phone] - 手机号（可选）
- * @param {string} [userData.verificationCode] - 验证码（可选）
+ * @param {string} userData.phone - 手机号（必填）
+ * @param {string} userData.code - 短信验证码（必填）
+ * @param {string} userData.password - 密码（必填）
  * @returns {Promise<Object>} 注册响应数据
  */
 export const register = async (userData) => {
-  const response = await apiClient.post('/auth/register', userData);
+  const response = await apiClient.post('/auth/register', {
+    phone: userData.phone,
+    code: userData.code,
+    password: userData.password,
+  });
   
-  if (response?.token) {
-    await setAuthToken(response.token);
+  if (response?.data?.token) {
+    await setAuthToken(response.data.token);
   }
   
   return response;
@@ -71,9 +74,7 @@ export const register = async (userData) => {
  * @returns {Promise<Object>} 登出响应数据
  */
 export const logout = async () => {
-  // 先调用后端登出接口
   const response = await apiClient.post('/auth/logout');
-  
   // 清除本地 token
   await clearAuthToken();
   
