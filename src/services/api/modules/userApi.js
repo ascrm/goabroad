@@ -51,21 +51,10 @@ export const updateUserProfile = async (profileData) => {
  * @param {string} file.name - 文件名
  * @param {string} file.type - 文件类型（如 'image/jpeg'）
  * @returns {Promise<Object>} 头像URL信息
- * @example
- * const result = await uploadAvatar({
- *   uri: 'file://path/to/image.jpg',
- *   name: 'avatar.jpg',
- *   type: 'image/jpeg'
- * });
- * // 返回: { avatar: 'https://...', thumbnail: 'https://...' }
  */
 export const uploadAvatar = async (file) => {
   const formData = new FormData();
-  formData.append('avatar', {
-    uri: file.uri,
-    name: file.name || 'avatar.jpg',
-    type: file.type || 'image/jpeg',
-  });
+  formData.append('avatar', file);
   
   const response = await apiClient.post('/users/avatar', formData, {
     headers: {

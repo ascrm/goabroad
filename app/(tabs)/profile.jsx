@@ -29,16 +29,10 @@ import {
   selectMembership,
   selectStats,
   selectUserInfo,
-  setMembership,
   setUserInfo,
   updateAvatar as updateAvatarAction,
-  updateGeneral,
-  updateNotifications,
-  updatePrivacy,
-  updateSecurity,
-  updateStats,
+  updateStats
 } from '@/src/store/slices/profileSlice';
-import { initializeMockProfileData } from '@/src/utils/mockProfileData';
 
 export default function Profile() {
   const router = useRouter();
@@ -64,57 +58,32 @@ export default function Profile() {
   // 初始化：加载用户资料
   useEffect(() => {
     const initializeProfile = async () => {
-      // 如果有认证用户ID，从 API 获取最新资料
-      if (authUser?.id) {
-        const result = await getUserProfile(authUser.id);
+      const result = await getUserProfile(authUser.id);
+
+      console.log('查询结果:', result);
+
+      if (result.payload) {
+        // 更新 Redux 状态
+        dispatch(setUserInfo({
+          id: result.payload.id,
+          avatar: result.payload.avatarUrl,  // API 返回的字段是 avatarUrl
+          nickname: result.payload.nickname,
+          signature: result.payload.bio,
+          level: result.payload.level,
+          experience: result.payload.experience || 0,
+          experienceMax: 1000,
+        }));
         
-        if (result.payload) {
-          // 更新 Redux 状态
-          dispatch(setUserInfo({
-            id: result.payload.id,
-            avatar: result.payload.avatar,
-            nickname: result.payload.nickname,
-            signature: result.payload.bio,
-            level: result.payload.level,
-            experience: result.payload.experience || 0,
-            experienceMax: 1000,
+        // 更新统计数据
+        if (result.payload.stats) {
+          dispatch(updateStats({
+            postsCount: result.payload.stats.postsCount || 0,
+            favoritesCount: result.payload.stats.favoritesCount || 0,
+            likesCount: result.payload.stats.likesCount || 0,
+            followersCount: result.payload.stats.followersCount || 0,
+            followingCount: result.payload.stats.followingCount || 0,
           }));
-          
-          // 更新统计数据
-          if (result.payload.stats) {
-            dispatch(updateStats({
-              postsCount: result.payload.stats.postsCount || 0,
-              favoritesCount: result.payload.stats.favoritesCount || 0,
-              likesCount: result.payload.stats.likesCount || 0,
-              followersCount: result.payload.stats.followersCount || 0,
-              followingCount: result.payload.stats.followingCount || 0,
-            }));
-          }
-        } else if (__DEV__ && !userInfo.id) {
-          // 开发环境 API 失败回退到 mock 数据
-          console.log('API 获取用户资料失败，使用 Mock 数据');
-          initializeMockProfileData(dispatch, {
-            setUserInfo,
-            setMembership,
-            updateStats,
-            updateSecurity,
-            updatePrivacy,
-            updateNotifications,
-            updateGeneral,
-          });
         }
-      } else if (__DEV__ && !userInfo.id) {
-        // 开发环境没有认证用户时使用 mock 数据
-        console.log('未找到认证用户，使用 Mock 数据');
-        initializeMockProfileData(dispatch, {
-          setUserInfo,
-          setMembership,
-          updateStats,
-          updateSecurity,
-          updatePrivacy,
-          updateNotifications,
-          updateGeneral,
-        });
       }
     };
     
