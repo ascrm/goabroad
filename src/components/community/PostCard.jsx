@@ -19,6 +19,7 @@ import { useDispatch } from 'react-redux';
 
 import { COLORS } from '@/src/constants';
 import { toggleFavoritePost, toggleFollowUser, toggleLikePost } from '@/src/store/slices/communitySlice';
+import TopicTag from './TopicTag';
 import { formatDistanceToNow } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 
@@ -89,6 +90,13 @@ export default function PostCard({ post, onLongPress }) {
     router.push(`/community/post/${post.id}?focus=comment`);
   }, [post.id, router]);
 
+  // 分享
+  const handleSharePress = useCallback((e) => {
+    e.stopPropagation();
+    // TODO: 实现分享功能
+    console.log('Share post:', post.id);
+  }, [post.id]);
+
   // 渲染封面/多图
   const renderMedia = () => {
     if (!post.images || post.images.length === 0) return null;
@@ -146,7 +154,7 @@ export default function PostCard({ post, onLongPress }) {
     );
   };
 
-  // 渲染标签
+  // 渲染标签（作者信息下方）
   const renderTags = () => {
     if (!post.tags || post.tags.length === 0) return null;
 
@@ -156,6 +164,19 @@ export default function PostCard({ post, onLongPress }) {
           <Text key={index} style={styles.tag}>
             #{tag}
           </Text>
+        ))}
+      </View>
+    );
+  };
+
+  // 渲染话题标签（内容区域）
+  const renderTopics = () => {
+    if (!post.topics || post.topics.length === 0) return null;
+
+    return (
+      <View style={styles.topicsContainer}>
+        {post.topics.slice(0, 2).map((topic, index) => (
+          <TopicTag key={index} topic={topic} size="small" />
         ))}
       </View>
     );
@@ -237,6 +258,8 @@ export default function PostCard({ post, onLongPress }) {
         )}
 
         {renderMedia()}
+        
+        {renderTopics()}
       </View>
 
       {/* 互动栏 */}
@@ -282,6 +305,14 @@ export default function PostCard({ post, onLongPress }) {
               </Text>
             )}
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.statButton}
+            onPress={handleSharePress}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="share-outline" size={20} color={COLORS.text.tertiary} />
+          </TouchableOpacity>
         </View>
 
         <Text style={styles.timeText}>{formatTime(post.createdAt)}</Text>
@@ -303,6 +334,7 @@ PostCard.propTypes = {
       isFollowing: PropTypes.bool,
     }).isRequired,
     tags: PropTypes.arrayOf(PropTypes.string),
+    topics: PropTypes.arrayOf(PropTypes.string),
     images: PropTypes.arrayOf(PropTypes.string),
     videoDuration: PropTypes.string,
     likeCount: PropTypes.number,
@@ -362,6 +394,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: COLORS.primary[600],
     marginRight: 8,
+  },
+  topicsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 8,
   },
   followButton: {
     paddingHorizontal: 16,

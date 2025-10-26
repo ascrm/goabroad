@@ -1,6 +1,6 @@
 /**
- * 国家列表页
- * 展示所有国家信息，支持筛选和搜索
+ * 国家列表页 - 重构版
+ * 新增功能：对比模式、高级筛选、地图视图
  */
 
 import { Ionicons } from '@expo/vector-icons';
@@ -18,8 +18,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import CountryCard from '@/src/components/country/CountryCard';
-import CountryFilters from '@/src/components/country/CountryFilters';
+import {
+  AdvancedFilters,
+  CompareMode,
+  CompareResult,
+  CountryCard,
+  CountryFilters,
+  MapView,
+} from '@/src/components/country';
 import { COLORS } from '@/src/constants';
 
 export default function CountriesPage() {
@@ -27,6 +33,14 @@ export default function CountriesPage() {
   const [searchText, setSearchText] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
   const [refreshing, setRefreshing] = useState(false);
+
+  // 新增状态
+  const [viewMode, setViewMode] = useState('list'); // 'list' | 'map'
+  const [showCompareMode, setShowCompareMode] = useState(false);
+  const [showCompareResult, setShowCompareResult] = useState(false);
+  const [selectedCountries, setSelectedCountries] = useState([]);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [advancedFilters, setAdvancedFilters] = useState({});
 
   // 模拟数据 - 实际应该从 Redux 或 API 获取
   const [countries] = useState([
@@ -152,7 +166,7 @@ export default function CountriesPage() {
     },
   ]);
 
-  // 筛选数据
+  // 筛选数据（增强版）
   const filteredCountries = countries.filter((country) => {
     // 搜索过滤
     if (searchText) {
@@ -174,6 +188,27 @@ export default function CountriesPage() {
       return country.tags.includes('工作友好');
     } else if (activeFilter === 'immigration') {
       return country.tags.includes('移民推荐');
+    }
+
+    // 高级筛选
+    if (advancedFilters.difficulty?.length > 0) {
+      if (!advancedFilters.difficulty.includes(country.difficulty.toLowerCase())) {
+        return false;
+      }
+    }
+
+    // 地区筛选
+    if (advancedFilters.regions?.length > 0) {
+      const regionMap = {
+        'north-america': ['US', 'CA'],
+        europe: ['GB', 'DE'],
+        asia: ['JP', 'SG'],
+        oceania: ['AU', 'NZ'],
+      };
+      const allowedCodes = advancedFilters.regions.flatMap((r) => regionMap[r] || []);
+      if (!allowedCodes.includes(country.code)) {
+        return false;
+      }
     }
 
     return true;
@@ -203,6 +238,39 @@ export default function CountriesPage() {
     // TODO: 实现收藏功能
   };
 
+  // 处理对比模式
+  const handleToggleCompareCountry = (countryId) => {
+    setSelectedCountries((prev) =>
+      prev.includes(countryId)
+        ? prev.filter((id) => id !== countryId)
+        : prev.length < 3
+          ? [...prev, countryId]
+          : prev
+    );
+  };
+
+  const handleStartCompare = () => {
+    if (selectedCountries.length >= 2) {
+      setShowCompareMode(false);
+      setShowCompareResult(true);
+    }
+  };
+
+  const handleCloseCompare = () => {
+    setShowCompareResult(false);
+    setSelectedCountries([]);
+  };
+
+  // 处理高级筛选
+  const handleApplyAdvancedFilters = (filters) => {
+    setAdvancedFilters(filters);
+  };
+
+  // 切换视图模式
+  const toggleViewMode = () => {
+    setViewMode((prev) => (prev === 'list' ? 'map' : 'list'));
+  };
+
   // 渲染国家卡片
   const renderCountryCard = ({ item }) => (
     <CountryCard
@@ -212,12 +280,58 @@ export default function CountriesPage() {
     />
   );
 
+  // 如果在对比结果页面，显示对比结果
+  if (showCompareResult) {
+    const compareCountries = countries.filter((c) =>
+      selectedCountries.includes(c.id)
+    );
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <CompareResult countries={compareCountries} onClose={handleCloseCompare} />
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* 顶部导航栏 */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>国家</Text>
         <View style={styles.headerRight}>
+          {/* 视图切换 */}
+          <TouchableOpacity style={styles.iconButton} onPress={toggleViewMode}>
+            <Ionicons
+              name={viewMode === 'list' ? 'map-outline' : 'list-outline'}
+              size={24}
+              color={COLORS.text.primary}
+            />
+          </TouchableOpacity>
+
+          {/* 对比模式 */}
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => setShowCompareMode(true)}
+          >
+            <Ionicons name="git-compare-outline" size={24} color={COLORS.text.primary} />
+            {selectedCountries.length > 0 && (
+              <View style={styles.compareBadge}>
+                <Text style={styles.compareBadgeText}>{selectedCountries.length}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+
+          {/* 高级筛选 */}
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => setShowAdvancedFilters(true)}
+          >
+            <Ionicons name="options-outline" size={24} color={COLORS.text.primary} />
+            {Object.keys(advancedFilters).some(
+              (key) => advancedFilters[key]?.length > 0
+            ) && <View style={styles.filterDot} />}
+          </TouchableOpacity>
+
+          {/* 搜索 */}
           <TouchableOpacity
             style={styles.iconButton}
             onPress={() => router.push('/search')}
@@ -250,8 +364,11 @@ export default function CountriesPage() {
       {/* 筛选 Tab */}
       <CountryFilters activeFilter={activeFilter} onFilterChange={setActiveFilter} />
 
-      {/* 国家列表 */}
-      <FlatList
+      {/* 内容区域：列表视图 or 地图视图 */}
+      {viewMode === 'map' ? (
+        <MapView countries={filteredCountries} onCountryPress={handleCountryPress} />
+      ) : (
+        <FlatList
         data={filteredCountries}
         renderItem={renderCountryCard}
         keyExtractor={(item) => item.id}
@@ -302,6 +419,25 @@ export default function CountriesPage() {
             <Text style={styles.emptyHint}>试试其他关键词或筛选条件</Text>
           </View>
         }
+        />
+      )}
+
+      {/* 对比模式弹窗 */}
+      <CompareMode
+        visible={showCompareMode}
+        onClose={() => setShowCompareMode(false)}
+        countries={countries}
+        selectedCountries={selectedCountries}
+        onToggleCountry={handleToggleCompareCountry}
+        onCompare={handleStartCompare}
+      />
+
+      {/* 高级筛选弹窗 */}
+      <AdvancedFilters
+        visible={showAdvancedFilters}
+        onClose={() => setShowAdvancedFilters(false)}
+        onApply={handleApplyAdvancedFilters}
+        initialFilters={advancedFilters}
       />
     </SafeAreaView>
   );
@@ -330,10 +466,37 @@ const styles = StyleSheet.create({
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 4,
   },
   iconButton: {
     padding: 8,
+    position: 'relative',
+  },
+  compareBadge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: COLORS.primary[600],
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  compareBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: COLORS.white,
+  },
+  filterDot: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: COLORS.error[500],
   },
   searchContainer: {
     paddingHorizontal: 16,

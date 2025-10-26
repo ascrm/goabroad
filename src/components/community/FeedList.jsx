@@ -52,11 +52,14 @@ const generateMockPosts = (page = 1, count = 20) => {
     { id: 5, name: '留学规划师', avatar: 'https://i.pravatar.cc/150?img=5' },
   ];
 
+  const topics = ['美国留学', 'F1签证', '英国硕士', '加拿大移民', '雅思备考', '澳洲WHV'];
+
   return Array.from({ length: count }, (_, i) => {
     const index = (page - 1) * count + i;
     const type = types[index % types.length];
     const hasImages = Math.random() > 0.3;
     const imageCount = hasImages ? Math.floor(Math.random() * 4) + 1 : 0;
+    const hasTopics = Math.random() > 0.3;
     
     return {
       id: `post-${index}`,
@@ -65,6 +68,7 @@ const generateMockPosts = (page = 1, count = 20) => {
       summary: Math.random() > 0.5 ? summaries[index % summaries.length] : null,
       author: authors[index % authors.length],
       tags: [countries[index % countries.length], countries[(index + 1) % countries.length]].slice(0, Math.floor(Math.random() * 2) + 1),
+      topics: hasTopics ? [topics[index % topics.length], topics[(index + 1) % topics.length]].slice(0, Math.floor(Math.random() * 2) + 1) : [],
       images: hasImages ? Array.from({ length: imageCount }, (_, j) => `https://picsum.photos/400/300?random=${index * 10 + j}`) : [],
       videoDuration: type === 'video' ? '05:32' : null,
       likeCount: Math.floor(Math.random() * 5000),

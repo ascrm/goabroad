@@ -75,8 +75,6 @@ export const uploadAvatar = async (file) => {
  * @param {string} [params.type='all'] - 帖子类型（all, POST, QUESTION, TIMELINE）
  * @returns {Promise<Object>} 分页帖子列表
  * @example
- * const posts = await getUserPosts(123, { page: 1, pageSize: 20, type: 'POST' });
- * // 返回: { items: [...], pagination: {...} }
  */
 export const getUserPosts = async (userId, params = {}) => {
   const { page = 1, pageSize = 20, type = 'all' } = params;

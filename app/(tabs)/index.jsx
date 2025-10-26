@@ -1,6 +1,6 @@
 /**
- * Tabs 首页
- * 展示个性化推荐、我的计划、快捷工具等核心功能
+ * Tabs 首页 - 内容发现中心
+ * 统一结构：搜索栏 + 快捷工具 + 我的规划 + 推荐内容 Feed
  */
 
 import { Ionicons } from '@expo/vector-icons';
@@ -16,7 +16,16 @@ import {
   View,
 } from 'react-native';
 
-import { EmptyPlanCard, GreetingHeader, HotCountries, LatestGuides, PlanCard, QuickTools, RecommendFeed } from '@/src/components/home';
+import {
+  DailyCheckIn,
+  EmptyPlanCard,
+  GreetingHeader,
+  InterestTags,
+  PlanCard,
+  QuickToolsGrid,
+  SearchBar,
+  UnifiedFeed,
+} from '@/src/components/home';
 import { COLORS } from '@/src/constants';
 import { useAuth } from '@/src/store/hooks';
 
@@ -25,8 +34,29 @@ export default function Home() {
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
 
-  // 模拟用户计划数据（设置为 null 来测试无计划状态）
-  const [userPlan] = useState(null); // 改为 null 显示无计划状态
+  // 模拟用户计划数据
+  const [userPlan] = useState({
+    id: '1',
+    name: '美国研究生留学',
+    targetCountry: '美国',
+    targetDate: '2026-09-01',
+    completedTasks: 12,
+    totalTasks: 28,
+    upcomingTasks: [
+      {
+        title: '准备托福考试报名',
+        dueDate: '2025-11-15',
+      },
+      {
+        title: '联系推荐信老师',
+        dueDate: '2025-11-20',
+      },
+      {
+        title: '完成个人陈述初稿',
+        dueDate: '2025-12-01',
+      },
+    ],
+  });
 
   // 判断是否有计划
   const isHasPlan = userPlan !== null && userPlan !== undefined;
@@ -34,17 +64,10 @@ export default function Home() {
   // 下拉刷新
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
-    // 模拟刷新数据
     setTimeout(() => {
       setRefreshing(false);
     }, 1500);
   }, []);
-
-  // 处理搜索
-  const handleSearch = () => {
-    console.log('打开搜索');
-    router.push('/search');
-  };
 
   // 处理通知
   const handleNotification = () => {
@@ -60,20 +83,14 @@ export default function Home() {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Text style={styles.logo}>GoAbroad</Text>
+          <Text style={styles.subtitle}>留学规划助手</Text>
         </View>
         <View style={styles.headerRight}>
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={handleSearch}
-          >
-            <Ionicons name="search" size={24} color={COLORS.gray[700]} />
-          </TouchableOpacity>
           <TouchableOpacity
             style={styles.iconButton}
             onPress={handleNotification}
           >
             <Ionicons name="notifications-outline" size={24} color={COLORS.gray[700]} />
-            {/* 通知角标 */}
             <View style={styles.badge}>
               <Text style={styles.badgeText}>3</Text>
             </View>
@@ -94,37 +111,34 @@ export default function Home() {
           />
         }
       >
-        {/* 问候区（仅在有计划时显示倒计时） */}
+        {/* 1. 搜索栏（固定） */}
+        <SearchBar />
+
+        {/* 2. 快捷工具（固定） */}
+        <QuickToolsGrid />
+
+        {/* 3. 问候区 + 倒计时 */}
         <GreetingHeader
           userName={userInfo?.nickname || userInfo?.name || '用户'}
           targetDate={isHasPlan ? userPlan?.targetDate : null}
           targetCountry={isHasPlan ? userPlan?.targetCountry : null}
         />
 
-        {/* 根据是否有计划显示不同内容 */}
+        {/* 4. 我的规划卡片（有计划显示，无计划显示创建入口） */}
         {isHasPlan ? (
-          <>
-            {/* 我的计划卡片 */}
-            <PlanCard plan={userPlan} />
-
-            {/* 快捷工具 */}
-            <QuickTools />
-
-            {/* 为你推荐 */}
-            <RecommendFeed />
-          </>
+          <PlanCard plan={userPlan} />
         ) : (
-          <>
-            {/* 空状态卡片 */}
-            <EmptyPlanCard />
-
-            {/* 热门目的地推荐 */}
-            <HotCountries />
-
-            {/* 最新攻略列表 */}
-            <LatestGuides />
-          </>
+          <EmptyPlanCard />
         )}
+
+        {/* 5. 每日签到/任务系统 */}
+        <DailyCheckIn />
+
+        {/* 6. 个性化兴趣标签 */}
+        <InterestTags />
+
+        {/* 7. 统一推荐内容 Feed（混合：国家、攻略、社区热帖） */}
+        <UnifiedFeed />
 
         {/* 底部占位 */}
         <View style={styles.bottomPlaceholder} />
@@ -144,8 +158,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingTop: 60,
-    paddingBottom: 12,
-    backgroundColor: '#FFFFFF',
+    paddingBottom: 16,
+    backgroundColor: COLORS.white,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.gray[100],
   },
@@ -153,9 +167,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   logo: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: '700',
     color: COLORS.primary[600],
+    marginBottom: 2,
+  },
+  subtitle: {
+    fontSize: 12,
+    color: COLORS.gray[500],
+    fontWeight: '500',
   },
   headerRight: {
     flexDirection: 'row',
@@ -184,7 +204,7 @@ const styles = StyleSheet.create({
   badgeText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: COLORS.white,
   },
   scrollView: {
     flex: 1,

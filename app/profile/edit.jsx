@@ -1,6 +1,6 @@
 /**
- * 编辑资料页面
- * 允许用户编辑个人资料信息
+ * 编辑资料页面 - 极简现代风格
+ * 全新设计，注重内容和用户体验
  */
 
 import { Ionicons } from '@expo/vector-icons';
@@ -10,39 +10,35 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    KeyboardAvoidingView,
-    Platform,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 
 import { COLORS } from '@/src/constants';
+import * as userApi from '@/src/services/api/modules/userApi';
 import {
-    selectUserInfo,
-    setUserInfo,
-    updateAvatar,
+  selectUserInfo,
+  setUserInfo,
+  updateAvatar,
 } from '@/src/store/slices/profileSlice';
-
-const GENDER_OPTIONS = [
-  { value: 'male', label: '男' },
-  { value: 'female', label: '女' },
-  { value: 'other', label: '其他' },
-];
 
 export default function EditProfile() {
   const router = useRouter();
   const dispatch = useDispatch();
   const userInfo = useSelector(selectUserInfo);
 
+  // 状态
   const [avatar, setAvatar] = useState(userInfo.avatar);
   const [nickname, setNickname] = useState(userInfo.nickname || '');
   const [gender, setGender] = useState(userInfo.gender || null);
@@ -51,34 +47,16 @@ export default function EditProfile() {
   );
   const [location, setLocation] = useState(userInfo.location || '');
   const [signature, setSignature] = useState(userInfo.signature || '');
-  const [education, setEducation] = useState(userInfo.education || []);
   
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [focusedField, setFocusedField] = useState(null);
 
   // 选择头像
   const handleSelectAvatar = async () => {
-    Alert.alert('更换头像', '', [
-      {
-        text: '从相册选择',
-        onPress: pickImage,
-      },
-      {
-        text: '拍照',
-        onPress: takePhoto,
-      },
-      {
-        text: '取消',
-        style: 'cancel',
-      },
-    ]);
-  };
-
-  // 从相册选择
-  const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('提示', '需要相册权限才能选择图片');
+      Alert.alert('提示', '需要相册权限');
       return;
     }
 
@@ -94,45 +72,27 @@ export default function EditProfile() {
     }
   };
 
-  // 拍照
-  const takePhoto = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('提示', '需要相机权限才能拍照');
-      return;
-    }
-
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      setAvatar(result.assets[0].uri);
-    }
-  };
-
-  // 日期选择处理
+  // 日期选择
   const handleDateChange = (event, selectedDate) => {
-    setShowDatePicker(false);
-    if (selectedDate) {
+    // Android 上用户点击确定或取消时才关闭
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+    }
+    
+    if (event.type === 'set' && selectedDate) {
       setBirthday(selectedDate);
+      // iOS 上需要手动关闭
+      if (Platform.OS === 'ios') {
+        setShowDatePicker(false);
+      }
+    } else if (event.type === 'dismissed') {
+      // 用户取消选择
+      setShowDatePicker(false);
     }
   };
 
-  // 验证昵称唯一性（模拟）
-  const validateNickname = async (value) => {
-    if (!value || value === userInfo.nickname) return true;
-    
-    // TODO: 调用 API 检查昵称唯一性
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    return true;
-  };
-
-  // 保存资料
+  // 保存
   const handleSave = async () => {
-    // 验证
     if (!nickname.trim()) {
       Alert.alert('提示', '请输入昵称');
       return;
@@ -146,20 +106,40 @@ export default function EditProfile() {
     setIsSaving(true);
 
     try {
-      // 验证昵称唯一性
-      const isNicknameValid = await validateNickname(nickname);
-      if (!isNicknameValid) {
-        Alert.alert('提示', '昵称已被使用，请换一个');
-        setIsSaving(false);
-        return;
+      // 1. 如果头像有变化，先上传头像
+      let avatarUrl = avatar;
+      if (avatar !== userInfo.avatar && avatar && !avatar.startsWith('http')) {
+        try {
+          const fileName = avatar.split('/').pop();
+          const fileType = fileName.split('.').pop();
+          const avatarFile = {
+            uri: avatar,
+            name: fileName,
+            type: `image/${fileType}`,
+          };
+          
+          const avatarResponse = await userApi.uploadAvatar(avatarFile);
+          avatarUrl = avatarResponse.data?.avatar || avatar;
+        } catch (error) {
+          console.warn('头像上传失败，使用本地路径', error);
+        }
       }
 
-      // TODO: 调用 API 保存资料
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // 2. 更新用户资料
+      const profileData = {
+        nickname: nickname.trim(),
+        bio: signature.trim(), // API 使用 bio 字段
+        gender: gender?.toUpperCase(), // API 可能需要大写
+        birthday: birthday?.toISOString().split('T')[0], // 格式: YYYY-MM-DD
+        location: location.trim(),
+      };
 
-      // 更新 Redux 状态
-      if (avatar !== userInfo.avatar) {
-        dispatch(updateAvatar(avatar));
+      // 调用 API 更新资料
+      const response = await userApi.updateUserProfile(profileData);
+
+      // 3. 更新本地 Redux 状态
+      if (avatarUrl !== userInfo.avatar) {
+        dispatch(updateAvatar(avatarUrl));
       }
 
       dispatch(
@@ -169,215 +149,197 @@ export default function EditProfile() {
           birthday: birthday?.toISOString(),
           location: location.trim(),
           signature: signature.trim(),
-          education,
         })
       );
 
-      Alert.alert('成功', '资料保存成功', [
-        {
-          text: '确定',
-          onPress: () => router.back(),
-        },
+      Alert.alert('成功', '保存成功', [
+        { text: '确定', onPress: () => router.back() },
       ]);
     } catch (error) {
-      console.error('保存资料失败:', error);
-      Alert.alert('失败', '保存资料失败，请重试');
+      console.error('保存失败:', error);
+      const errorMessage = error.response?.data?.message || error.message || '保存失败，请重试';
+      Alert.alert('失败', errorMessage);
     } finally {
       setIsSaving(false);
-    }
-  };
-
-  // 取消编辑
-  const handleCancel = () => {
-    const hasChanges =
-      avatar !== userInfo.avatar ||
-      nickname !== (userInfo.nickname || '') ||
-      gender !== userInfo.gender ||
-      location !== (userInfo.location || '') ||
-      signature !== (userInfo.signature || '');
-
-    if (hasChanges) {
-      Alert.alert('提示', '确定要放弃编辑吗？', [
-        { text: '继续编辑', style: 'cancel' },
-        {
-          text: '放弃',
-          style: 'destructive',
-          onPress: () => router.back(),
-        },
-      ]);
-    } else {
-      router.back();
     }
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
+      
       <KeyboardAvoidingView
-        style={styles.keyboardView}
+        style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        {/* 顶部导航 */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.headerButton}
-            onPress={handleCancel}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="close" size={24} color={COLORS.gray[700]} />
+        {/* 极简导航栏 */}
+        <View style={styles.nav}>
+          <TouchableOpacity onPress={() => router.back()} hitSlop={12}>
+            <Ionicons name="close" size={28} color={COLORS.gray[900]} />
           </TouchableOpacity>
-
-          <Text style={styles.headerTitle}>编辑资料</Text>
-
+          
           <TouchableOpacity
-            style={styles.headerButton}
             onPress={handleSave}
             disabled={isSaving}
-            activeOpacity={0.7}
+            style={styles.saveBtn}
+            hitSlop={12}
           >
             {isSaving ? (
               <ActivityIndicator size="small" color={COLORS.primary[600]} />
             ) : (
-              <Text style={styles.saveText}>保存</Text>
+              <Text style={styles.saveText}>完成</Text>
             )}
           </TouchableOpacity>
         </View>
 
         <ScrollView
-          style={styles.content}
+          style={styles.scroll}
           showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={styles.scrollContent}
         >
-          {/* 头像 */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>头像</Text>
+          {/* 头像 - 极简设计 */}
+          <View style={styles.avatarSection}>
             <TouchableOpacity
-              style={styles.avatarRow}
               onPress={handleSelectAvatar}
-              activeOpacity={0.7}
+              activeOpacity={0.8}
             >
               {avatar ? (
                 <Image source={{ uri: avatar }} style={styles.avatar} />
               ) : (
-                <View style={[styles.avatar, styles.avatarPlaceholder]}>
-                  <Ionicons name="person" size={40} color={COLORS.gray[400]} />
+                <View style={[styles.avatar, styles.avatarEmpty]}>
+                  <Ionicons name="person" size={48} color={COLORS.gray[300]} />
                 </View>
               )}
-              <Ionicons name="chevron-forward" size={20} color={COLORS.gray[400]} />
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              onPress={handleSelectAvatar}
+              style={styles.changeAvatarBtn}
+            >
+              <Text style={styles.changeAvatarText}>更换头像</Text>
             </TouchableOpacity>
           </View>
 
-          {/* 昵称 */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>昵称 *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="请输入昵称（2-20字符）"
-              placeholderTextColor={COLORS.gray[400]}
-              value={nickname}
-              onChangeText={setNickname}
-              maxLength={20}
-            />
-            <Text style={styles.charCount}>{nickname.length}/20</Text>
-          </View>
-
-          {/* 性别 */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>性别</Text>
-            <View style={styles.genderRow}>
-              {GENDER_OPTIONS.map((option) => (
-                <TouchableOpacity
-                  key={option.value}
-                  style={[
-                    styles.genderOption,
-                    gender === option.value && styles.genderOptionActive,
-                  ]}
-                  onPress={() => setGender(option.value)}
-                  activeOpacity={0.7}
-                >
-                  <Text
-                    style={[
-                      styles.genderOptionText,
-                      gender === option.value && styles.genderOptionTextActive,
-                    ]}
-                  >
-                    {option.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-
-          {/* 生日 */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>生日</Text>
-            <TouchableOpacity
-              style={styles.dateRow}
-              onPress={() => setShowDatePicker(true)}
-              activeOpacity={0.7}
-            >
-              <Text
+          {/* 表单区域 - 极简输入 */}
+          <View style={styles.form}>
+            
+            {/* 昵称 */}
+            <View style={styles.field}>
+              <Text style={styles.label}>昵称</Text>
+              <TextInput
                 style={[
-                  styles.dateText,
-                  !birthday && styles.dateTextPlaceholder,
+                  styles.input,
+                  focusedField === 'nickname' && styles.inputFocused,
                 ]}
+                placeholder="输入你的昵称"
+                placeholderTextColor={COLORS.gray[400]}
+                value={nickname}
+                onChangeText={setNickname}
+                maxLength={20}
+                onFocus={() => setFocusedField('nickname')}
+                onBlur={() => setFocusedField(null)}
+              />
+              {nickname.length > 0 && (
+                <Text style={styles.counter}>{nickname.length}/20</Text>
+              )}
+            </View>
+
+            {/* 性别 */}
+            <View style={styles.field}>
+              <Text style={styles.label}>性别</Text>
+              <View style={styles.genderRow}>
+                {[
+                  { value: 'male', label: '男' },
+                  { value: 'female', label: '女' },
+                  { value: 'other', label: '其他' },
+                ].map((item) => (
+                  <TouchableOpacity
+                    key={item.value}
+                    style={[
+                      styles.genderBtn,
+                      gender === item.value && styles.genderBtnActive,
+                    ]}
+                    onPress={() => setGender(item.value)}
+                  >
+                    <Text
+                      style={[
+                        styles.genderText,
+                        gender === item.value && styles.genderTextActive,
+                      ]}
+                    >
+                      {item.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* 生日 */}
+            <View style={styles.field}>
+              <Text style={styles.label}>生日</Text>
+              <TouchableOpacity
+                style={[
+                  styles.input,
+                  styles.dateInput,
+                ]}
+                onPress={() => setShowDatePicker(true)}
               >
-                {birthday
-                  ? birthday.toLocaleDateString('zh-CN', {
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric',
-                    })
-                  : '请选择生日'}
-              </Text>
-              <Ionicons name="calendar-outline" size={20} color={COLORS.gray[400]} />
-            </TouchableOpacity>
-          </View>
+                <Text
+                  style={[
+                    styles.dateText,
+                    !birthday && styles.datePlaceholder,
+                  ]}
+                >
+                  {birthday
+                    ? `${birthday.getFullYear()}/${String(birthday.getMonth() + 1).padStart(2, '0')}/${String(birthday.getDate()).padStart(2, '0')}`
+                    : '选择生日'}
+                </Text>
+              </TouchableOpacity>
+            </View>
 
-          {/* 所在地 */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>所在地</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="请输入所在地"
-              placeholderTextColor={COLORS.gray[400]}
-              value={location}
-              onChangeText={setLocation}
-              maxLength={50}
-            />
-          </View>
+            {/* 所在地 */}
+            <View style={styles.field}>
+              <Text style={styles.label}>所在地</Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  focusedField === 'location' && styles.inputFocused,
+                ]}
+                placeholder="你在哪里"
+                placeholderTextColor={COLORS.gray[400]}
+                value={location}
+                onChangeText={setLocation}
+                maxLength={50}
+                onFocus={() => setFocusedField('location')}
+                onBlur={() => setFocusedField(null)}
+              />
+            </View>
 
-          {/* 个性签名 */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>个性签名</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              placeholder="写下你的个性签名..."
-              placeholderTextColor={COLORS.gray[400]}
-              value={signature}
-              onChangeText={setSignature}
-              multiline
-              maxLength={100}
-              textAlignVertical="top"
-            />
-            <Text style={styles.charCount}>{signature.length}/100</Text>
-          </View>
+            {/* 个性签名 */}
+            <View style={styles.field}>
+              <Text style={styles.label}>个性签名</Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  styles.textarea,
+                  focusedField === 'signature' && styles.inputFocused,
+                ]}
+                placeholder="写点什么..."
+                placeholderTextColor={COLORS.gray[400]}
+                value={signature}
+                onChangeText={setSignature}
+                multiline
+                maxLength={100}
+                textAlignVertical="top"
+                onFocus={() => setFocusedField('signature')}
+                onBlur={() => setFocusedField(null)}
+              />
+              {signature.length > 0 && (
+                <Text style={styles.counter}>{signature.length}/100</Text>
+              )}
+            </View>
 
-          {/* 教育背景 */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>教育背景</Text>
-            <TouchableOpacity
-              style={styles.addButton}
-              onPress={() => Alert.alert('提示', '教育背景编辑功能开发中')}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="add-circle-outline" size={20} color={COLORS.primary[600]} />
-              <Text style={styles.addButtonText}>添加教育经历</Text>
-            </TouchableOpacity>
           </View>
-
-          {/* 底部间距 */}
-          <View style={{ height: 40 }} />
         </ScrollView>
 
         {/* 日期选择器 */}
@@ -385,9 +347,10 @@ export default function EditProfile() {
           <DateTimePicker
             value={birthday || new Date()}
             mode="date"
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            display={Platform.OS === 'ios' ? 'spinner' : 'calendar'}
             onChange={handleDateChange}
             maximumDate={new Date()}
+            locale="zh-CN"
           />
         )}
       </KeyboardAvoidingView>
@@ -398,138 +361,144 @@ export default function EditProfile() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.gray[50],
+    backgroundColor: COLORS.white,
   },
-  keyboardView: {
+  flex: {
     flex: 1,
   },
-  header: {
+  
+  // 导航栏
+  nav: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: COLORS.white,
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.gray[200],
+    borderBottomColor: COLORS.gray[100],
   },
-  headerButton: {
-    padding: 4,
-    minWidth: 60,
-  },
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: COLORS.gray[900],
+  saveBtn: {
+    paddingHorizontal: 4,
   },
   saveText: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '600',
     color: COLORS.primary[600],
   },
-  content: {
+  
+  // 滚动区域
+  scroll: {
     flex: 1,
   },
-  section: {
-    backgroundColor: COLORS.white,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    marginTop: 12,
+  scrollContent: {
+    paddingBottom: 40,
   },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.gray[700],
-    marginBottom: 12,
-  },
-  avatarRow: {
-    flexDirection: 'row',
+  
+  // 头像区域
+  avatarSection: {
     alignItems: 'center',
-    justifyContent: 'space-between',
+    paddingTop: 40,
+    paddingBottom: 32,
   },
   avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: COLORS.gray[100],
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: COLORS.gray[50],
   },
-  avatarPlaceholder: {
+  avatarEmpty: {
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 2,
+    borderColor: COLORS.gray[200],
+    borderStyle: 'dashed',
+  },
+  changeAvatarBtn: {
+    marginTop: 16,
+  },
+  changeAvatarText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: COLORS.primary[600],
+  },
+  
+  // 表单
+  form: {
+    paddingHorizontal: 24,
+  },
+  field: {
+    marginBottom: 32,
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.gray[500],
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   input: {
-    fontSize: 16,
+    fontSize: 17,
     color: COLORS.gray[900],
-    paddingVertical: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 0,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.gray[200],
   },
-  textArea: {
-    minHeight: 80,
-    textAlignVertical: 'top',
+  inputFocused: {
+    borderBottomColor: COLORS.primary[600],
   },
-  charCount: {
-    fontSize: 12,
+  counter: {
+    fontSize: 13,
     color: COLORS.gray[400],
     textAlign: 'right',
     marginTop: 4,
   },
+  
+  // 性别选择
   genderRow: {
     flexDirection: 'row',
     gap: 12,
   },
-  genderOption: {
+  genderBtn: {
     flex: 1,
-    paddingVertical: 10,
-    backgroundColor: COLORS.gray[100],
-    borderRadius: 8,
+    paddingVertical: 12,
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  genderOptionActive: {
-    backgroundColor: COLORS.primary[50],
-    borderColor: COLORS.primary[500],
-  },
-  genderOptionText: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: COLORS.gray[600],
-  },
-  genderOptionTextActive: {
-    color: COLORS.primary[600],
-  },
-  dateRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
+    borderBottomWidth: 2,
     borderBottomColor: COLORS.gray[200],
   },
-  dateText: {
+  genderBtnActive: {
+    borderBottomColor: COLORS.primary[600],
+  },
+  genderText: {
     fontSize: 16,
+    fontWeight: '500',
+    color: COLORS.gray[500],
+  },
+  genderTextActive: {
+    color: COLORS.primary[600],
+    fontWeight: '600',
+  },
+  
+  // 日期选择
+  dateInput: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  dateText: {
+    fontSize: 17,
     color: COLORS.gray[900],
   },
-  dateTextPlaceholder: {
+  datePlaceholder: {
     color: COLORS.gray[400],
   },
-  addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    backgroundColor: COLORS.gray[50],
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: COLORS.gray[200],
-    borderStyle: 'dashed',
-  },
-  addButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: COLORS.primary[600],
-    marginLeft: 6,
+  
+  // 多行文本
+  textarea: {
+    minHeight: 80,
+    paddingTop: 12,
+    textAlignVertical: 'top',
   },
 });
 

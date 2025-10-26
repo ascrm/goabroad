@@ -17,16 +17,17 @@ import {
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 
-import CategorySelector from '@/src/components/community/CategorySelector';
 import FeedList from '@/src/components/community/FeedList';
+import TrendingTopics from '@/src/components/community/TrendingTopics';
 import { COLORS } from '@/src/constants';
 import { setActiveTab } from '@/src/store/slices/communitySlice';
 
 const TABS = [
-  { id: 'recommend', label: '推荐' },
-  { id: 'following', label: '关注' },
-  { id: 'country', label: '国家' },
-  { id: 'stage', label: '阶段' },
+  { id: 'recommend', label: '推荐', icon: 'flame-outline' },
+  { id: 'following', label: '关注', icon: 'heart-outline' },
+  { id: 'video', label: '视频', icon: 'videocam-outline' },
+  { id: 'question', label: '问答', icon: 'help-circle-outline' },
+  { id: 'article', label: '攻略', icon: 'book-outline' },
 ];
 
 export default function Community() {
@@ -53,29 +54,38 @@ export default function Community() {
       
       {/* 顶部 Tab 栏 */}
       <View style={styles.tabBar}>
-        {TABS.map((tab) => (
-          <TouchableOpacity
-            key={tab.id}
-            style={styles.tabButton}
-            onPress={() => handleTabChange(tab.id)}
-            activeOpacity={0.7}
-          >
-            <Text
+        <View style={styles.tabScrollContainer}>
+          {TABS.map((tab) => (
+            <TouchableOpacity
+              key={tab.id}
               style={[
-                styles.tabText,
-                activeTab === tab.id && styles.tabTextActive,
+                styles.tabButton,
+                activeTab === tab.id && styles.tabButtonActive,
               ]}
+              onPress={() => handleTabChange(tab.id)}
+              activeOpacity={0.7}
             >
-              {tab.label}
-            </Text>
-            {activeTab === tab.id && <View style={styles.tabIndicator} />}
-          </TouchableOpacity>
-        ))}
+              <Ionicons
+                name={tab.icon}
+                size={20}
+                color={activeTab === tab.id ? COLORS.primary[600] : COLORS.gray[600]}
+              />
+              <Text
+                style={[
+                  styles.tabText,
+                  activeTab === tab.id && styles.tabTextActive,
+                ]}
+              >
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       </View>
 
-      {/* 分类选择器（仅在国家和阶段 Tab 显示） */}
-      {(activeTab === 'country' || activeTab === 'stage') && (
-        <CategorySelector type={activeTab} />
+      {/* 热门话题（仅在推荐 Tab 显示） */}
+      {activeTab === 'recommend' && (
+        <TrendingTopics onTopicPress={(topic) => console.log('Topic pressed:', topic)} />
       )}
 
       {/* Feed 流列表 */}
@@ -152,36 +162,37 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.gray[50],
   },
   tabBar: {
-    flexDirection: 'row',
     backgroundColor: COLORS.white,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border.light,
-    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  tabScrollContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 12,
+    gap: 8,
   },
   tabButton: {
-    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
-    position: 'relative',
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: COLORS.gray[50],
+  },
+  tabButtonActive: {
+    backgroundColor: COLORS.primary[50],
   },
   tabText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '500',
-    color: COLORS.text.secondary,
+    color: COLORS.gray[700],
   },
   tabTextActive: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
-    color: COLORS.text.primary,
-  },
-  tabIndicator: {
-    position: 'absolute',
-    bottom: 0,
-    left: '25%',
-    right: '25%',
-    height: 3,
-    backgroundColor: COLORS.primary[500],
-    borderRadius: 2,
+    color: COLORS.primary[600],
   },
   fabContainer: {
     position: 'absolute',

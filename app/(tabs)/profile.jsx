@@ -59,9 +59,6 @@ export default function Profile() {
   useEffect(() => {
     const initializeProfile = async () => {
       const result = await getUserProfile(authUser.id);
-
-      console.log('查询结果:', result);
-
       if (result.payload) {
         // 更新 Redux 状态
         dispatch(setUserInfo({
@@ -162,7 +159,6 @@ export default function Profile() {
         type,
       };
       
-      // 调用 API 上传头像
       const result = await uploadAvatarApi(file);
       
       if (result.payload) {
