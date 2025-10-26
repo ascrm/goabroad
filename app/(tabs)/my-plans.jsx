@@ -1,5 +1,5 @@
 /**
- * 规划页面
+ * 我的规划页面
  * 显示用户的留学规划、时间线、任务等
  * 支持看板、时间线、日历三种视图模式
  */
@@ -9,12 +9,12 @@ import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { useSelector } from 'react-redux';
 
 import { CalendarView, KanbanView, TimelineView, ViewSwitcher } from '@/src/components/planning';
 import { COLORS } from '@/src/constants';
+import { useAppSelector } from '@/src/store/hooks';
 
-export default function Planning() {
+export default function MyPlans() {
   const [currentView, setCurrentView] = useState('kanban');
 
   // 模拟规划数据（增强版，包含任务）
@@ -93,7 +93,7 @@ export default function Planning() {
     },
   ];
   
-  const plans = useSelector((state) => state.planning.plans);
+  const plans = useAppSelector((state) => state.planning.plans);
   // 使用模拟数据或 Redux 数据
   const displayPlans = plans && plans.length > 0 ? plans : mockPlans;
   const hasPlans = displayPlans && displayPlans.length > 0;
@@ -130,8 +130,8 @@ export default function Planning() {
   if (!hasPlans) {
     return (
       <View style={styles.container}>
-        <StatusBar style="dark" />
-        
+      <StatusBar style="dark" />
+      
         {/* 空状态内容 */}
         <View style={styles.emptyContent}>
           <View style={styles.iconContainer}>
@@ -171,41 +171,6 @@ export default function Planning() {
     );
   }
 
-  // 计算倒计时天数
-  const calculateDaysLeft = (targetDate) => {
-    if (!targetDate) return null;
-    const target = new Date(targetDate);
-    const today = new Date();
-    const diffTime = target - today;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays > 0 ? diffDays : 0;
-  };
-
-  // 获取类型图标和颜色
-  const getTypeConfig = (type) => {
-    const configs = {
-      study: {
-        icon: 'school',
-        color: COLORS.primary[600],
-        bgColor: COLORS.primary[50],
-        label: '留学',
-      },
-      work: {
-        icon: 'briefcase',
-        color: COLORS.success[600],
-        bgColor: COLORS.success[50],
-        label: '工作',
-      },
-      immigration: {
-        icon: 'airplane',
-        color: COLORS.warning[600],
-        bgColor: COLORS.warning[50],
-        label: '移民',
-      },
-    };
-    return configs[type] || configs.study;
-  };
-
   // 渲染当前视图
   const renderCurrentView = () => {
     switch (currentView) {
@@ -241,20 +206,6 @@ export default function Planning() {
   // 有规划时显示视图
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" />
-      
-      {/* 顶部标题栏 */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>我的规划</Text>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={handleCreatePlan}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="add" size={24} color={COLORS.primary[600]} />
-        </TouchableOpacity>
-      </View>
-
       {/* 视图切换器 */}
       <ViewSwitcher
         currentView={currentView}
@@ -324,30 +275,4 @@ const styles = StyleSheet.create({
     color: COLORS.gray[600],
     marginTop: 8,
   },
-  // 有规划时的样式
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 16,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.gray[100],
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: COLORS.gray[900],
-  },
-  addButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 20,
-    backgroundColor: COLORS.primary[50],
-  },
 });
-

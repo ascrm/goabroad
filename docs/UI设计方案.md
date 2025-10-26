@@ -1,228 +1,214 @@
-## 💡 二、针对每个 Tab 的优化方案
+看了代码，我发现了几个可能导致底部抽屉无法弹出的问题：
 
-### 🏠 **首页优化方案**
+## 主要问题分析：
 
-#### **方案 A：内容发现中心**（推荐）
-```
-当前问题：
-- 有计划和无计划的内容差异太大，体验割裂
-- 快捷工具入口不够突出
+1. **两个独立的 Modal 可能存在冲突**：你有两个平级的 Modal（侧边抽屉和底部抽屉），在某些情况下，React Native 的 Modal 组件同时显示多个可能会有问题。
 
-优化建议：
-✅ 统一首页结构，不论是否有计划都显示：
-   - 顶部：搜索 + 快捷工具（固定）
-   - 我的规划卡片（有计划显示，无计划显示创建入口）
-   - 推荐内容 Feed（混合：国家、攻略、社区热帖）
-   - 底部：探索更多
+2. **层级和渲染顺序问题**：底部抽屉的 Modal 虽然有高 z-index，但它是完全独立于侧边抽屉 Modal 的，可能无法正常显示在上层。
 
-✅ 增加个性化标签订阅
-✅ 增加每日签到/任务系统（提升留存）
-```
+3. **点击事件可能被拦截**：虽然你设置了点击事件，但在 Modal 内部的复杂手势处理可能会有问题。
 
----
+## 解决方案：
 
-### 🌍 **国家页优化方案**
+建议将底部抽屉放在**同一个 Modal 内部**，作为侧边抽屉的覆盖层。这样可以确保正确的层级关系和事件处理。
 
-#### **方案 A：对比工具强化**（推荐）
-```
-当前问题：
-- 只能单个查看，缺少对比功能
-- 筛选维度不够丰富
+```jsx:src/components/layout/DrawerMenu.jsx
+// ... existing code ...
 
-优化建议：
-✅ 增加"对比模式"按钮
-   - 可以选择 2-3 个国家对比
-   - 对比维度：费用、难度、时长、就业率等
-   
-✅ 增加更多筛选维度：
-   - 费用范围滑块
-   - 难度级别
-   - 地区分类（北美/欧洲/亚洲/大洋洲）
-   
-✅ 地图视图切换
-   - 列表视图 / 地图视图切换
-   - 地图上直观展示国家分布
-```
+return (
+  <Modal
+    visible={visible}
+    transparent
+    animationType="none"
+    onRequestClose={() => {
+      if (showAccountSheet) {
+        setShowAccountSheet(false);
+      } else {
+        onClose();
+      }
+    }}
+  >
+    <View style={styles.overlay}>
+      {/* 遮罩层 - 必须在抽屉之前渲染，这样抽屉会在上层 */}
+      <Animated.View
+        style={[
+          styles.backdrop,
+          {
+            opacity: backdropOpacity,
+          },
+        ]}
+      >
+        <TouchableOpacity
+          style={StyleSheet.absoluteFillObject}
+          activeOpacity={1}
+          onPress={onClose}
+        />
+      </Animated.View>
 
----
+      {/* 抽屉内容 */}
+      <Animated.View
+        style={[
+          styles.drawer,
+          {
+            transform: [{ translateX: slideAnim }],
+          },
+        ]}
+        onStartShouldSetResponder={() => true}
+        onTouchEnd={(e) => e.stopPropagation()}
+      >
+        {/* ... 抽屉内容保持不变 ... */}
+      </Animated.View>
 
-### 📋 **规划页优化方案**
+      {/* 底部账户切换抽屉 - 放在同一个 Modal 内 */}
+      {showAccountSheet && (
+        <>
+          {/* 底部抽屉的遮罩层 */}
+          <Animated.View
+            style={[
+              styles.sheetBackdrop,
+              {
+                opacity: sheetBackdropOpacity,
+              },
+            ]}
+          >
+            <TouchableOpacity
+              style={StyleSheet.absoluteFillObject}
+              activeOpacity={1}
+              onPress={() => setShowAccountSheet(false)}
+            />
+          </Animated.View>
 
-#### **方案 A：看板视图**（推荐）
-```
-当前问题：
-- 只是简单列表，不够直观
-- 缺少进度可视化
+          {/* 底部抽屉内容 */}
+          <Animated.View
+            style={[
+              styles.bottomSheet,
+              {
+                transform: [{ translateY: sheetSlideAnim }],
+              },
+            ]}
+            onStartShouldSetResponder={() => true}
+            onTouchEnd={(e) => e.stopPropagation()}
+          >
+            {/* 抽屉顶部拖动条 */}
+            <View style={styles.sheetHandle}>
+              <View style={styles.sheetHandleBar} />
+            </View>
 
-优化建议：
-✅ 多视图模式：
-   1. 看板视图（默认）- 卡片形式，显示进度
-   2. 时间线视图 - 甘特图风格
-   3. 日历视图 - 按时间节点展示
-   
-✅ 快速操作：
-   - 卡片上直接勾选任务
-   - 快速添加材料
-   - 一键分享进度
-   
-✅ 智能提醒：
-   - 即将到期任务高亮
-   - 今日待办置顶
-```
+            {/* 标题 */}
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>账户管理</Text>
+            </View>
 
----
+            {/* 选项列表 */}
+            <View style={styles.sheetContent}>
+              <TouchableOpacity
+                style={styles.sheetOption}
+                onPress={() => {
+                  setShowAccountSheet(false);
+                  setTimeout(() => {
+                    handleNavigate('/auth/register');
+                  }, 300);
+                }}
+              >
+                <View style={styles.sheetOptionIcon}>
+                  <Ionicons name="person-add-outline" size={24} color={COLORS.primary[600]} />
+                </View>
+                <View style={styles.sheetOptionContent}>
+                  <Text style={styles.sheetOptionTitle}>创建新账号</Text>
+                  <Text style={styles.sheetOptionDescription}>注册一个全新的 GoAbroad 账号</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={COLORS.gray[400]} />
+              </TouchableOpacity>
 
-### 💬 **社区页优化方案**
+              <View style={styles.sheetDivider} />
 
-#### **方案 A：视频流强化**（推荐）
-```
-当前问题：
-- 只有文字和图片，缺少视频
-- Tab 分类不够直观
+              <TouchableOpacity
+                style={styles.sheetOption}
+                onPress={() => {
+                  setShowAccountSheet(false);
+                  setTimeout(() => {
+                    handleNavigate('/auth/add-account');
+                  }, 300);
+                }}
+              >
+                <View style={styles.sheetOptionIcon}>
+                  <Ionicons name="people-outline" size={24} color={COLORS.primary[600]} />
+                </View>
+                <View style={styles.sheetOptionContent}>
+                  <Text style={styles.sheetOptionTitle}>添加已有账号</Text>
+                  <Text style={styles.sheetOptionDescription}>登录并切换到其他账号</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={COLORS.gray[400]} />
+              </TouchableOpacity>
 
-优化建议：
-✅ 改进 Tab 分类：
-   - 推荐（智能推荐）
-   - 关注（订阅的人）
-   - 视频（短视频专区）✨
-   - 问答（问题专区）
-   - 攻略（长文章专区）
-   
-✅ 增加话题功能：
-   - #美国留学 #签证攻略 等话题
-   - 话题页聚合内容
-   
-✅ 互动优化：
-   - 点赞/收藏/转发/评论
-   - 用户主页
-   - 关注系统
-```
+              <View style={styles.sheetDivider} />
 
----
-
-### 👤 **我的页优化方案**
-
-#### **方案 A：成就系统**（推荐）
-```
-当前问题：
-- 功能入口太多，不够聚焦
-- 缺少激励机制
-
-优化建议：
-✅ 顶部增加成就展示：
-   - 勋章墙
-   - 学习时长
-   - 完成里程碑
-   
-✅ 简化菜单分类：
-   - 我的内容（发布/收藏/评论）合并
-   - 我的规划（计划/文件）合并
-   - 设置和帮助合并
-   
-✅ 增加数据可视化：
-   - 使用时长统计
-   - 学习路径图
-   - 月度报告
-```
-
----
-
-## 🎯 三、Tab 架构优化方案
-
-### 🔥 **方案 1：5 Tab 优化版**（推荐 - 改进现有架构）
-
-```
-┌─────┬─────┬─────┬─────┬─────┐
-│ 首页 │ 探索 │  +  │ 社区 │ 我的 │
-└─────┴─────┴─────┴─────┴─────┘
-  🏠    🌍    📋    💬    👤
-```
-
-**调整说明**：
-1. **首页** - 保持不变，个性化内容中心
-2. **探索** - 将"国家"改名为"探索"，扩展内容：
-   - 国家库
-   - 学校库 ✨
-   - 专业库 ✨
-   - 攻略库
-3. **规划** - 改为**中间凸起按钮** ✨
-   - 视觉上更突出
-   - 强调核心功能
-   - 快速创建规划
-4. **社区** - 保持不变
-5. **我的** - 保持不变
-
-**优势**：
-- ✅ 强调核心功能（规划）
-- ✅ 扩展探索维度
-- ✅ UI 更有层次感
-
----
-
-
----
-
-### 🌟 **方案 3：4 Tab + 浮动按钮**（最推荐）
-
-```
-┌─────┬─────┬─────┬─────┐
-│ 首页 │ 探索 │ 社区 │ 我的 │
-└─────┴─────┴─────┴─────┘
-  🏠    🌍    💬    👤
-         
-         [+] ← 浮动规划按钮
+              <TouchableOpacity
+                style={styles.sheetOption}
+                onPress={() => {
+                  setShowAccountSheet(false);
+                  setTimeout(() => {
+                    handleLogout();
+                  }, 300);
+                }}
+              >
+                <View style={styles.sheetOptionIcon}>
+                  <Ionicons name="log-out-outline" size={24} color={COLORS.error[500]} />
+                </View>
+                <View style={styles.sheetOptionContent}>
+                  <Text style={[styles.sheetOptionTitle, { color: COLORS.error[500] }]}>退出登录</Text>
+                  <Text style={styles.sheetOptionDescription}>退出当前账号</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        </>
+      )}
+    </View>
+  </Modal>
+);
 ```
 
-**设计说明**：
-- 只有 4 个 Tab
-- 规划功能通过全局浮动按钮访问
-- 浮动按钮在所有页面都可见
+同时，更新底部抽屉的样式，确保它在绝对定位且覆盖整个屏幕：
 
-**优势**：
-- ✅ Tab 更简洁
-- ✅ 规划功能随时可用
-- ✅ 视觉上更现代
-- ✅ 参考：小红书、抖音
+```jsx:src/components/layout/DrawerMenu.jsx
+// ... existing styles ...
 
-**劣势**：
-- ❌ 规划入口不如 Tab 直观
-- ❌ 可能被误认为只是发布按钮
-
----
-
-
-## 📊 四、最终推荐
-
-### 🏆 **推荐采用：方案 1（5 Tab 优化版）+ 中间凸起规划按钮**
-
+// 底部抽屉样式
+sheetBackdrop: {
+  position: 'absolute',
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  zIndex: 100, // 确保在侧边抽屉上方
+},
+bottomSheet: {
+  position: 'absolute',
+  bottom: 0,
+  left: 0,
+  right: 0,
+  backgroundColor: COLORS.white,
+  borderTopLeftRadius: 24,
+  borderTopRightRadius: 24,
+  paddingBottom: 40,
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: -4 },
+  shadowOpacity: 0.15,
+  shadowRadius: 12,
+  elevation: 10,
+  zIndex: 101, // 确保在遮罩上方
+},
 ```
-┌─────┬─────┬──────┬─────┬─────┐
-│ 首页 │ 国家 │  规划 │ 社区 │ 我的 │
-│     │     │  /📋\ │     │     │
-└─────┴─────┴──────┴─────┴─────┘
-  🏠    🌍              💬    👤
-```
 
-**理由**：
-1. ✅ **保留 5 个 Tab** - 功能分区清晰
-3. ✅ **规划凸起强调** - 突出核心功能
-4. ✅ **改动最小** - 基于现有架构优化
-5. ✅ **用户认知成本低** - 符合使用习惯
+## 关键改动：
 
----
+1. **删除了第二个独立的 Modal**，将底部抽屉移到侧边抽屉 Modal 内部
+2. **使用条件渲染**：`{showAccountSheet && (...)}`
+3. **调整了样式**：给底部抽屉添加 `position: 'absolute'` 和 `bottom: 0`，确保它从底部出现
+4. **修改了 onRequestClose**：处理返回键时先关闭底部抽屉，再关闭侧边抽屉
 
-## 🎨 五、UI 风格统一建议
+这样可以确保底部抽屉能够正确显示在侧边抽屉上方，并且事件处理也会更加可靠。
 
-看了您的代码后，发现各页面 UI 风格略有差异，建议统一：
-
-### 统一元素
-1. **顶部导航栏**：高度、字体、颜色统一
-2. **搜索框**：样式和交互统一
-3. **卡片圆角**：统一为 12px 或 16px
-4. **间距系统**：4、8、12、16、24、32、48
-5. **阴影效果**：统一参数
-6. **空状态设计**：统一风格（大 emoji + 说明 + CTA）
-
----
-
-需要我针对某个具体方案展开详细设计吗？或者您有其他想法？
+由于你在 **ask 模式**，我无法直接修改文件。请切换到 **agent 模式**，或者手动复制上述代码进行修改。

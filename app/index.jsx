@@ -6,13 +6,12 @@
 import { router } from 'expo-router';
 import React, { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
-import { useSelector } from 'react-redux';
 
-import { useAuth } from '@/src/store/hooks';
+import { useAppSelector, useAuth } from '@/src/store/hooks';
 
 export default function Index() {
   const { isLoggedIn, loading } = useAuth();
-  const onboardingCompleted = useSelector(state => state.user.preferences?.onboarding?.completed);
+  const onboardingCompleted = useAppSelector(state => state.user.preferences?.onboarding?.completed);
 
   useEffect(() => {
     // 等待 Redux persist 恢复完成

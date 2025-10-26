@@ -17,9 +17,9 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import { useDispatch, useSelector } from 'react-redux';
 
 import { COLORS } from '@/src/constants';
+import { useAppDispatch, useAppSelector } from '@/src/store/hooks';
 import {
     clearCache,
     selectSettings,
@@ -29,8 +29,8 @@ import {
 
 export default function Settings() {
   const router = useRouter();
-  const dispatch = useDispatch();
-  const settings = useSelector(selectSettings);
+  const dispatch = useAppDispatch();
+  const settings = useAppSelector(selectSettings);
 
   const [autoPlayVideo, setAutoPlayVideo] = useState(settings.general.autoPlayVideo);
   const [dataUsageMode, setDataUsageMode] = useState(settings.general.dataUsageMode);

@@ -1,20 +1,39 @@
 /**
  * Tabs Layout
- * 底部标签栏布局 - 带中间凸起规划按钮
+ * 底部标签栏布局 - 带中间凸起规划按钮和全局抽屉
+ * 全局顶部导航栏统一在这里管理
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { Tabs } from 'expo-router';
-import React from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
-import { useSelector } from 'react-redux';
+import { Tabs, usePathname, useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import React, { createContext, useContext, useState } from 'react';
+import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { DrawerGestureWrapper, DrawerMenu, TopNavigationBar } from '@/src/components/layout';
 import { COLORS } from '@/src/constants';
+import { useAppSelector, useAuth } from '@/src/store/hooks';
+
+// 创建抽屉上下文，用于在所有 tabs 中共享抽屉状态
+const DrawerContext = createContext({
+  openDrawer: () => {},
+  closeDrawer: () => {},
+});
+
+export const useDrawer = () => useContext(DrawerContext);
 
 export default function TabsLayout() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const { userInfo } = useAuth();
+  
   // 从 Redux 获取角标数据
-  const todoCount = useSelector((state) => state.planning.todoCount);
-  const unreadCount = useSelector((state) => state.ui.unreadCount);
+  const todoCount = useAppSelector((state) => state.planning.todoCount);
+  const unreadCount = useAppSelector((state) => state.ui.unreadCount);
+  
+  // 抽屉状态
+  const [drawerVisible, setDrawerVisible] = useState(false);
 
   // 格式化角标数字（>99 显示 99+）
   const formatBadge = (count) => {
@@ -22,8 +41,138 @@ export default function TabsLayout() {
     return count > 99 ? '99+' : count.toString();
   };
 
+  // 抽屉控制函数
+  const openDrawer = () => setDrawerVisible(true);
+  const closeDrawer = () => setDrawerVisible(false);
+
+  // 处理通知
+  const handleNotification = () => {
+    console.log('打开通知');
+    // router.push('/profile/notifications');
+  };
+
+  // 根据当前路由返回导航栏配置
+  const getNavBarConfig = () => {
+    // create-plan 页面不显示导航栏（因为会立即跳转）
+    if (pathname === '/create-plan') {
+      return { show: false };
+    }
+
+    // 默认配置
+    const config = {
+      show: true,
+      centerContent: null,
+      rightContent: null,
+    };
+
+    // 根据路径定制导航栏
+    switch (pathname) {
+      case '/':
+      case '/index':
+        // 首页：右侧显示通知按钮
+        config.rightContent = (
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={handleNotification}
+            accessibilityLabel="通知"
+            accessibilityHint="查看通知消息"
+          >
+            <Ionicons 
+              name="notifications-outline" 
+              size={24} 
+              color={COLORS.gray[700]} 
+            />
+            <View style={styles.badge}>
+              <View style={styles.badgeDot} />
+            </View>
+          </TouchableOpacity>
+        );
+        break;
+
+      case '/community':
+        // 社区页：中间显示标题，右侧显示搜索按钮
+        config.centerContent = (
+          <View style={styles.centerContent}>
+            <Text style={styles.pageTitle}>社区</Text>
+          </View>
+        );
+        config.rightContent = (
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => router.push('/search')}
+            accessibilityLabel="搜索"
+            accessibilityHint="搜索社区内容"
+          >
+            <Ionicons name="search" size={24} color={COLORS.gray[700]} />
+          </TouchableOpacity>
+        );
+        break;
+
+      case '/countries':
+        // 国家页：可以添加特定配置
+        config.centerContent = (
+          <View style={styles.centerContent}>
+            <Text style={styles.pageTitle}>国家</Text>
+          </View>
+        );
+        config.rightContent = (
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => router.push('/search')}
+            accessibilityLabel="搜索"
+            accessibilityHint="搜索社区内容"
+          >
+            <Ionicons name="search" size={24} color={COLORS.gray[700]} />
+          </TouchableOpacity>
+        );
+        break;
+
+      case '/my-plans':
+        // 规划页：可以添加特定配置
+        config.centerContent = (
+          <View style={styles.centerContent}>
+            <Text style={styles.pageTitle}>规划</Text>
+          </View>
+        );
+        config.rightContent = (
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => router.push('/planning/create')}
+            accessibilityLabel="创建新规划"
+          >
+            <Ionicons name="add-circle-outline" size={24} color={COLORS.gray[700]} />
+          </TouchableOpacity>
+        );
+        break;
+
+      default:
+        break;
+    }
+
+    return config;
+  };
+
+  const navBarConfig = getNavBarConfig();
+
   return (
-    <Tabs
+    <DrawerContext.Provider value={{ openDrawer, closeDrawer }}>
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        <StatusBar style="dark" />
+        
+        <DrawerGestureWrapper onSwipeOpen={openDrawer}>
+          {/* 全局顶部导航栏 */}
+          {navBarConfig.show && (
+            <TopNavigationBar
+              userInfo={userInfo}
+              onAvatarPress={openDrawer}
+              centerContent={navBarConfig.centerContent}
+              rightContent={navBarConfig.rightContent}
+            />
+          )}
+
+          {/* Tabs 内容 */}
+          <View style={styles.tabsContainer}>
+            <Tabs
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: COLORS.primary[600],
@@ -41,11 +190,7 @@ export default function TabsLayout() {
           shadowOpacity: 0.1,
           shadowRadius: 8,
         },
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '600',
-          marginTop: 4,
-        },
+        tabBarShowLabel: false, // 隐藏所有标签文字
         tabBarBadgeStyle: {
           backgroundColor: COLORS.error[500],
           color: COLORS.white,
@@ -67,34 +212,36 @@ export default function TabsLayout() {
           tabBarIcon: ({ focused, color }) => (
             <Ionicons
               name={focused ? 'home' : 'home-outline'}
-              size={26}
+              size={28}
               color={color}
             />
           ),
+          tabBarAccessibilityLabel: '首页',
         }}
       />
 
-      {/* Tab 2 - 国家 */}
+      {/* Tab 2 - 规划 */}
       <Tabs.Screen
-        name="countries"
-        options={{
-          title: '国家',
-          tabBarIcon: ({ focused, color }) => (
-            <Ionicons
-              name={focused ? 'globe' : 'globe-outline'}
-              size={26}
-              color={color}
-            />
-          ),
-        }}
-      />
-
-      {/* Tab 3 - 规划（中间凸起按钮）*/}
-      <Tabs.Screen
-        name="planning"
+        name="my-plans"
         options={{
           title: '规划',
           tabBarBadge: formatBadge(todoCount),
+          tabBarIcon: ({ focused, color }) => (
+            <Ionicons
+              name={focused ? 'list' : 'list-outline'}
+              size={28}
+              color={color}
+            />
+          ),
+          tabBarAccessibilityLabel: '规划',
+        }}
+      />
+
+      {/* Tab 3 - 创建规划（中间凸起按钮）*/}
+      <Tabs.Screen
+        name="create-plan"
+        options={{
+          title: '创建规划',
           tabBarIcon: ({ focused }) => (
             <View style={styles.centerButtonContainer}>
               <View style={[
@@ -102,14 +249,14 @@ export default function TabsLayout() {
                 focused && styles.centerButtonActive
               ]}>
                 <Ionicons
-                  name={focused ? 'clipboard' : 'clipboard-outline'}
-                  size={28}
+                  name="add"
+                  size={32}
                   color={COLORS.white}
                 />
               </View>
             </View>
           ),
-          tabBarLabel: () => null, // 隐藏中间按钮的文字
+          tabBarAccessibilityLabel: '创建新规划',
         }}
       />
 
@@ -121,33 +268,81 @@ export default function TabsLayout() {
           tabBarBadge: formatBadge(unreadCount),
           tabBarIcon: ({ focused, color }) => (
             <Ionicons
-              name={focused ? 'chatbubbles' : 'chatbubbles-outline'}
-              size={26}
+              name={focused ? 'people' : 'people-outline'}
+              size={28}
               color={color}
             />
           ),
+          tabBarAccessibilityLabel: '社区',
         }}
       />
 
-      {/* Tab 5 - 我的 */}
+      {/* Tab 5 - 国家 */}
       <Tabs.Screen
-        name="profile"
+        name="countries"
         options={{
-          title: '我的',
+          title: '国家',
           tabBarIcon: ({ focused, color }) => (
             <Ionicons
-              name={focused ? 'person' : 'person-outline'}
-              size={26}
+              name={focused ? 'globe' : 'globe-outline'}
+              size={28}
               color={color}
             />
           ),
+          tabBarAccessibilityLabel: '国家',
         }}
       />
-    </Tabs>
+            </Tabs>
+          </View>
+        </DrawerGestureWrapper>
+        
+        {/* 全局抽屉菜单 */}
+        <DrawerMenu visible={drawerVisible} onClose={closeDrawer} />
+      </SafeAreaView>
+    </DrawerContext.Provider>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: COLORS.white,
+  },
+  tabsContainer: {
+    flex: 1,
+  },
+  centerContent: {
+    alignItems: 'center',
+  },
+  pageTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: COLORS.gray[900],
+  },
+  iconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  badge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: COLORS.error[500],
+    borderRadius: 6,
+    minWidth: 12,
+    height: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  badgeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: COLORS.white,
+  },
   centerButtonContainer: {
     position: 'absolute',
     top: -20,

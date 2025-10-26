@@ -10,33 +10,33 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    Image,
+    KeyboardAvoidingView,
+    Platform,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
-import { useDispatch, useSelector } from 'react-redux';
 
 import { COLORS } from '@/src/constants';
 import * as userApi from '@/src/services/api/modules/userApi';
+import { useAppDispatch, useAppSelector } from '@/src/store/hooks';
 import {
-  selectUserInfo,
-  setUserInfo,
-  updateAvatar,
+    selectUserInfo,
+    setUserInfo,
+    updateAvatar,
 } from '@/src/store/slices/profileSlice';
 
 export default function EditProfile() {
   const router = useRouter();
-  const dispatch = useDispatch();
-  const userInfo = useSelector(selectUserInfo);
+  const dispatch = useAppDispatch();
+  const userInfo = useAppSelector(selectUserInfo);
 
   // 状态
   const [avatar, setAvatar] = useState(userInfo.avatar);

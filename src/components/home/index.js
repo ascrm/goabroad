@@ -12,6 +12,5 @@ export { default as PlanCard } from './PlanCard';
 export { default as QuickTools } from './QuickTools';
 export { default as QuickToolsGrid } from './QuickToolsGrid';
 export { default as RecommendFeed } from './RecommendFeed';
-export { default as SearchBar } from './SearchBar';
 export { default as UnifiedFeed } from './UnifiedFeed';
 

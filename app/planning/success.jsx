@@ -14,13 +14,13 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useDispatch } from 'react-redux';
 
 import { COLORS } from '@/src/constants';
+import { useAppDispatch } from '@/src/store/hooks';
 
 export default function SuccessScreen() {
   const params = useLocalSearchParams();
-  const dispatch = useDispatch();
+  const dispatch = useAppDispatch();
   const planningData = params.data ? JSON.parse(params.data) : null;
   
   const [scale] = useState(new Animated.Value(0));

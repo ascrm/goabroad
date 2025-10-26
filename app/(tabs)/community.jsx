@@ -5,21 +5,19 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
 import React, { useState } from 'react';
 import {
     Pressable,
-    SafeAreaView,
     StyleSheet,
     Text,
     TouchableOpacity,
     View
 } from 'react-native';
-import { useDispatch, useSelector } from 'react-redux';
 
 import FeedList from '@/src/components/community/FeedList';
 import TrendingTopics from '@/src/components/community/TrendingTopics';
 import { COLORS } from '@/src/constants';
+import { useAppDispatch, useAppSelector } from '@/src/store/hooks';
 import { setActiveTab } from '@/src/store/slices/communitySlice';
 
 const TABS = [
@@ -32,8 +30,8 @@ const TABS = [
 
 export default function Community() {
   const router = useRouter();
-  const dispatch = useDispatch();
-  const activeTab = useSelector((state) => state.community.activeTab);
+  const dispatch = useAppDispatch();
+  const activeTab = useAppSelector((state) => state.community.activeTab);
   const [showPublishMenu, setShowPublishMenu] = useState(false);
 
   // 切换 Tab
@@ -49,8 +47,7 @@ export default function Community() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar style="dark" />
+    <View style={styles.container}>
       
       {/* 顶部 Tab 栏 */}
       <View style={styles.tabBar}>
@@ -152,7 +149,7 @@ export default function Community() {
           />
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 

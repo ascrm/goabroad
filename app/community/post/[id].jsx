@@ -8,21 +8,21 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  Share,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    Share,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
-import { useDispatch, useSelector } from 'react-redux';
 
 import CommentInput from '@/src/components/community/CommentInput';
 import CommentList from '@/src/components/community/CommentList';
 import PostDetail from '@/src/components/community/PostDetail';
 import { COLORS } from '@/src/constants';
+import { useAppDispatch, useAppSelector } from '@/src/store/hooks';
 import { addComment, setCurrentPost } from '@/src/store/slices/communitySlice';
 
 // Mock 帖子数据
@@ -109,12 +109,12 @@ A: 说明资金来源，展示充足的经济能力
 
 export default function PostDetailPage() {
   const router = useRouter();
-  const dispatch = useDispatch();
+  const dispatch = useAppDispatch();
   const { id, focus } = useLocalSearchParams();
   const [replyTo, setReplyTo] = useState(null);
   const commentInputRef = useRef(null);
 
-  const post = useSelector((state) => state.community.currentPost);
+  const post = useAppSelector((state) => state.community.currentPost);
 
   // 加载帖子数据
   useEffect(() => {

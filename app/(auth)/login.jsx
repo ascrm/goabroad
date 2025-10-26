@@ -9,24 +9,23 @@ import { router } from 'expo-router';
 import React, { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 
 import { Button, Input, Toast } from '@/src/components';
-import { useAppDispatch } from '@/src/store/hooks';
+import { useAppDispatch, useAppSelector } from '@/src/store/hooks';
 import { loginUser } from '@/src/store/slices/authSlice';
 import { loginSchema } from '@/src/utils/validation';
-import { useSelector } from 'react-redux';
 
 const Login = () => {
   const dispatch = useAppDispatch();
-  const onboardingCompleted = useSelector(state => state.user.preferences?.onboarding?.completed);
+  const onboardingCompleted = useAppSelector(state => state.user.preferences?.onboarding?.completed);
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState({ visible: false, type: 'success', message: '' });

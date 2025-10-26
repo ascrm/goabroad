@@ -16,9 +16,9 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import { useDispatch, useSelector } from 'react-redux';
 
 import { COLORS } from '@/src/constants';
+import { useAppDispatch, useAppSelector } from '@/src/store/hooks';
 import {
     selectNotificationSettings,
     updateNotifications,
@@ -26,8 +26,8 @@ import {
 
 export default function NotificationSettings() {
   const router = useRouter();
-  const dispatch = useDispatch();
-  const notifications = useSelector(selectNotificationSettings);
+  const dispatch = useAppDispatch();
+  const notifications = useAppSelector(selectNotificationSettings);
 
   // 处理通知开关切换
   const handleToggle = (key, value) => {
