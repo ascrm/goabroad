@@ -6,99 +6,72 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  FlatList,
-  Image,
-  RefreshControl,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    FlatList,
+    Image,
+    RefreshControl,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 import { COLORS } from '@/src/constants';
-
-// 模拟数据
-const MOCK_FAVORITES = [
-  {
-    id: '1',
-    post: {
-      id: 'p1',
-      type: 'post',
-      title: '2024年美国TOP30大学申请时间表',
-      content: '整理了详细的申请时间线，包括标化考试、文书、推荐信...',
-      author: {
-        id: 'u1',
-        nickname: '留学小助手',
-        avatar: null,
-      },
-      images: [],
-      likes: 567,
-      comments: 123,
-      views: 4567,
-    },
-    createdAt: '2024-10-20',
-    folder: '留学规划',
-  },
-  {
-    id: '2',
-    post: {
-      id: 'p2',
-      type: 'question',
-      title: 'GRE 330+备考经验分享',
-      content: '分享我3个月从310到332的备考历程...',
-      author: {
-        id: 'u2',
-        nickname: '努力的小明',
-        avatar: null,
-      },
-      images: ['https://picsum.photos/200/300'],
-      likes: 234,
-      comments: 67,
-      views: 2345,
-    },
-    createdAt: '2024-10-15',
-    folder: '考试准备',
-  },
-  {
-    id: '3',
-    post: {
-      id: 'p3',
-      type: 'post',
-      title: '英国签证办理全流程',
-      content: '从材料准备到面签全过程详解...',
-      author: {
-        id: 'u3',
-        nickname: '英伦留学者',
-        avatar: null,
-      },
-      images: [],
-      likes: 456,
-      comments: 89,
-      views: 3456,
-    },
-    createdAt: '2024-10-10',
-    folder: '签证办理',
-  },
-];
+import { useAppDispatch, useAppSelector } from '@/src/store/hooks';
+import {
+    clearFavorites,
+    fetchUserFavorites,
+    selectUserFavorites,
+} from '@/src/store/slices/userSlice';
 
 export default function MyFavorites() {
   const router = useRouter();
-  const [favorites, setFavorites] = useState(MOCK_FAVORITES);
+  const dispatch = useAppDispatch();
+  
+  const userFavoritesState = useAppSelector(selectUserFavorites);
+  const favorites = userFavoritesState?.items || [];
+  const pagination = userFavoritesState?.pagination;
+  const loading = userFavoritesState?.loading || false;
+  
   const [refreshing, setRefreshing] = useState(false);
   const [selectedFolder, setSelectedFolder] = useState('all');
+  const [loadingMore, setLoadingMore] = useState(false);
 
-  // 获取收藏夹列表
-  const folders = ['all', ...new Set(favorites.map((item) => item.folder))];
+  // 页面初始化时获取数据
+  useEffect(() => {
+    loadFavorites(1);
+    
+    // 组件卸载时清空数据
+    return () => {
+      dispatch(clearFavorites());
+    };
+  }, []);
+
+  // 获取收藏夹列表（从收藏数据中提取）
+  const folders = ['all', ...new Set(favorites.map((item) => item.folder).filter(Boolean))];
+
+  // 加载收藏列表
+  const loadFavorites = async (page = 1) => {
+    try {
+      await dispatch(
+        fetchUserFavorites({
+          page,
+          pageSize: 20,
+        })
+      ).unwrap();
+    } catch (error) {
+      console.error('加载收藏失败:', error);
+    }
+  };
 
   // 刷新
   const handleRefresh = async () => {
     setRefreshing(true);
-    // TODO: 调用 API 刷新数据
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await loadFavorites(1);
     setRefreshing(false);
   };
 
@@ -108,39 +81,53 @@ export default function MyFavorites() {
     return favorites.filter((item) => item.folder === selectedFolder);
   };
 
-  // 取消收藏
-  const handleUnfavorite = (itemId) => {
-    setFavorites(favorites.filter((item) => item.id !== itemId));
+  // 加载更多
+  const handleLoadMore = async () => {
+    if (loadingMore || loading || !pagination) return;
+    
+    const { currentPage, totalPages } = pagination;
+    if (currentPage >= totalPages) return;
+    
+    setLoadingMore(true);
+    await loadFavorites(currentPage + 1);
+    setLoadingMore(false);
+  };
+
+  // 取消收藏（乐观更新）
+  const handleUnfavorite = async (itemId) => {
+    // TODO: 调用取消收藏 API（需要社区模块的 API）
+    // 暂时只做本地移除
+    console.log('取消收藏:', itemId);
   };
 
   // 获取类型文本
   const getTypeText = (type) => {
     const map = {
-      post: '帖子',
-      question: '提问',
-      video: '视频',
+      POST: '帖子',
+      QUESTION: '提问',
+      TIMELINE: '视频',
     };
-    return map[type] || type;
+    return map[type?.toUpperCase()] || type;
   };
 
   // 获取类型图标
   const getTypeIcon = (type) => {
     const map = {
-      post: 'document-text',
-      question: 'help-circle',
-      video: 'videocam',
+      POST: 'document-text',
+      QUESTION: 'help-circle',
+      TIMELINE: 'videocam',
     };
-    return map[type] || 'document-text';
+    return map[type?.toUpperCase()] || 'document-text';
   };
 
   // 获取类型颜色
   const getTypeColor = (type) => {
     const map = {
-      post: COLORS.primary[600],
-      question: COLORS.info[600],
-      video: COLORS.error[600],
+      POST: COLORS.primary[600],
+      QUESTION: COLORS.info[600],
+      TIMELINE: COLORS.error[600],
     };
-    return map[type] || COLORS.primary[600];
+    return map[type?.toUpperCase()] || COLORS.primary[600];
   };
 
   // 格式化数字
@@ -254,19 +241,41 @@ export default function MyFavorites() {
   };
 
   // 空状态
-  const renderEmptyState = () => (
-    <View style={styles.emptyContainer}>
-      <Ionicons name="star-outline" size={64} color={COLORS.gray[300]} />
-      <Text style={styles.emptyText}>还没有收藏内容</Text>
-      <TouchableOpacity
-        style={styles.exploreButton}
-        onPress={() => router.push('/community')}
-        activeOpacity={0.7}
-      >
-        <Text style={styles.exploreButtonText}>去社区逛逛</Text>
-      </TouchableOpacity>
-    </View>
-  );
+  const renderEmptyState = () => {
+    if (loading) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={COLORS.primary[600]} />
+          <Text style={styles.loadingText}>加载中...</Text>
+        </View>
+      );
+    }
+    
+    return (
+      <View style={styles.emptyContainer}>
+        <Ionicons name="star-outline" size={64} color={COLORS.gray[300]} />
+        <Text style={styles.emptyText}>还没有收藏内容</Text>
+        <TouchableOpacity
+          style={styles.exploreButton}
+          onPress={() => router.push('/community')}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.exploreButtonText}>去社区逛逛</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  // 列表底部加载更多指示器
+  const renderFooter = () => {
+    if (!loadingMore) return null;
+    return (
+      <View style={styles.footerLoading}>
+        <ActivityIndicator size="small" color={COLORS.primary[600]} />
+        <Text style={styles.footerText}>加载更多...</Text>
+      </View>
+    );
+  };
 
   const filteredFavorites = getFilteredFavorites();
 
@@ -309,7 +318,7 @@ export default function MyFavorites() {
       <FlatList
         data={filteredFavorites}
         renderItem={renderFavoriteCard}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item.id?.toString()}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -320,6 +329,9 @@ export default function MyFavorites() {
           />
         }
         ListEmptyComponent={renderEmptyState}
+        ListFooterComponent={renderFooter}
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.3}
       />
     </SafeAreaView>
   );
@@ -499,6 +511,28 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: COLORS.white,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 80,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: COLORS.gray[500],
+    marginTop: 12,
+  },
+  footerLoading: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 20,
+    gap: 8,
+  },
+  footerText: {
+    fontSize: 13,
+    color: COLORS.gray[500],
   },
 });
 

@@ -25,7 +25,7 @@ const FEED_DATA = [
     type: 'guide',
     title: '2025年美国F1签证完整攻略',
     author: '留学小助手',
-    avatar: 'https://i.pravatar.cc/150?img=1',
+    avatarUrl: 'https://i.pravatar.cc/150?img=1',
     image: 'https://images.unsplash.com/photo-1554224311-beee4ece8db7?w=400',
     tags: ['签证', '攻略'],
     stats: { views: '8.9万', likes: '2.1万' },
@@ -35,7 +35,7 @@ const FEED_DATA = [
     type: 'post',
     title: '刚拿到offer！分享我的申请经验',
     author: '小明同学',
-    avatar: 'https://i.pravatar.cc/150?img=2',
+    avatarUrl: 'https://i.pravatar.cc/150?img=2',
     content: '历时半年，终于收到了梦校的offer！分享一下我的申请经验...',
     images: [
       'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=400',
@@ -130,7 +130,7 @@ const UnifiedFeed = () => {
         </Text>
         <View style={styles.guideFooter}>
           <View style={styles.guideAuthor}>
-            <Image source={{ uri: item.avatar }} style={styles.guideAvatar} />
+            <Image source={{ uri: item.avatarUrl || item.avatar }} style={styles.guideAvatar} />
             <Text style={styles.guideAuthorName}>{item.author}</Text>
           </View>
           <View style={styles.guideStats}>
@@ -150,7 +150,7 @@ const UnifiedFeed = () => {
       activeOpacity={0.9}
     >
       <View style={styles.postHeader}>
-        <Image source={{ uri: item.avatar }} style={styles.postAvatar} />
+        <Image source={{ uri: item.avatarUrl || item.avatar }} style={styles.postAvatar} />
         <View style={styles.postAuthorInfo}>
           <Text style={styles.postAuthor}>{item.author}</Text>
           <Text style={styles.postTime}>2小时前</Text>

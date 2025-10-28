@@ -5,7 +5,7 @@
 
 export const MOCK_USER_INFO = {
   id: 'user_001',
-  avatar: null,
+  avatarUrl: null, // 改为 avatarUrl 与 API 保持一致
   nickname: '留学追梦人',
   username: 'dreamer2024',
   signature: '一步一个脚印，向着梦想前进 🌟',

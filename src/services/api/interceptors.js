@@ -45,6 +45,19 @@ apiClient.interceptors.request.use(
       config.headers.Authorization = token;
     }
     
+    // 打印请求日志（调试用）
+    console.log('==================== API 请求 ====================');
+    console.log('URL:', config.url);
+    console.log('Method:', config.method?.toUpperCase());
+    console.log('Headers:', JSON.stringify(config.headers, null, 2));
+    if (config.data) {
+      console.log('Request Data:', JSON.stringify(config.data, null, 2));
+    }
+    if (config.params) {
+      console.log('Request Params:', JSON.stringify(config.params, null, 2));
+    }
+    console.log('==================================================');
+    
     return config;
   },
   (error) => {
@@ -61,15 +74,31 @@ apiClient.interceptors.response.use(
     // 计算请求耗时
     const duration = Date.now() - response.config.metadata.startTime;
     
+    // 打印响应日志（调试用）
+    console.log('==================== API 响应 ====================');
+    console.log('URL:', response.config.url);
+    console.log('Method:', response.config.method?.toUpperCase());
+    console.log('Status:', response.status);
+    console.log('Duration:', duration + 'ms');
+    console.log('Response Data:', JSON.stringify(response.data, null, 2));
+    console.log('==================================================');
+    
     // 返回响应数据
     return response.data;
   },
   async (error) => {
     const originalRequest = error.config;
     
+    // 打印错误日志（调试用）
+    console.log('==================== API 错误 ====================');
+    console.log('URL:', originalRequest?.url);
+    console.log('Method:', originalRequest?.method?.toUpperCase());
+    
     // 处理网络错误
     if (!error.response) {
-      console.error('[API Network Error]', error.message);
+      console.error('[Network Error]', error.message);
+      console.log('==================================================');
+      
       store.dispatch(showToast({
         type: 'error',
         message: '网络连接失败，请检查网络设置',
@@ -82,6 +111,11 @@ apiClient.interceptors.response.use(
     }
     
     const { status, data } = error.response;
+    
+    // 打印错误响应数据
+    console.log('Status:', status);
+    console.log('Error Data:', JSON.stringify(data, null, 2));
+    console.log('==================================================');
     
     // 初始化重试计数器
     if (!originalRequest._retryCount) {

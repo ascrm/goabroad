@@ -4,7 +4,7 @@
  */
 
 import PropTypes from 'prop-types';
-import React from 'react';
+import React, { useState } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 
 const Avatar = ({
@@ -17,6 +17,7 @@ const Avatar = ({
   online,
   style,
 }) => {
+  const [imageError, setImageError] = useState(false);
   const sizeStyles = styles[`avatar_${size}`];
   const sizeValue = {
     xs: 24,
@@ -61,19 +62,29 @@ const Avatar = ({
     xl: 32,
   }[size];
 
+  // 判断是否显示图片
+  const shouldShowImage = source && !imageError && (
+    typeof source === 'string' ? source.trim().length > 0 : true
+  );
+
   return (
     <View style={[styles.container, style]}>
       <View
         style={[
           styles.avatar,
           sizeStyles,
-          { backgroundColor: source ? 'transparent' : bgColor },
+          { backgroundColor: shouldShowImage ? 'transparent' : bgColor },
         ]}
       >
-        {source ? (
+        {shouldShowImage ? (
           <Image
             source={typeof source === 'string' ? { uri: source } : source}
             style={[styles.image, sizeStyles]}
+            onError={(e) => {
+              console.log('Avatar image load error:', e.nativeEvent.error);
+              setImageError(true);
+            }}
+            resizeMode="cover"
           />
         ) : icon ? (
           icon

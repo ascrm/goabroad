@@ -102,7 +102,7 @@ export default function VideoCard({ video, onLike, onComment, onShare }) {
           activeOpacity={0.7}
         >
           <Image
-            source={{ uri: video.author.avatar }}
+            source={{ uri: video.author.avatarUrl || video.author.avatar }}
             style={styles.avatar}
           />
           <Text style={styles.authorName}>{video.author.name}</Text>

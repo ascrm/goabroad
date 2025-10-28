@@ -19,9 +19,9 @@ import { useDispatch } from 'react-redux';
 
 import { COLORS } from '@/src/constants';
 import { toggleFavoritePost, toggleFollowUser, toggleLikePost } from '@/src/store/slices/communitySlice';
-import TopicTag from './TopicTag';
 import { formatDistanceToNow } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
+import TopicTag from './TopicTag';
 
 /**
  * 格式化数字显示（1.2k, 1.5w）
@@ -223,7 +223,7 @@ export default function PostCard({ post, onLongPress }) {
           activeOpacity={0.7}
         >
           <Image
-            source={{ uri: post.author.avatar || 'https://via.placeholder.com/40' }}
+            source={{ uri: post.author.avatarUrl || post.author.avatar || 'https://via.placeholder.com/40' }}
             style={styles.avatar}
           />
           <View style={styles.authorDetails}>

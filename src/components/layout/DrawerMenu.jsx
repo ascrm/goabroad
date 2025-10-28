@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import {
+  Alert,
   Animated,
   BackHandler,
   Dimensions,
@@ -20,16 +21,23 @@ import {
 
 import { Avatar } from '@/src/components/ui';
 import { COLORS } from '@/src/constants';
-import { useAuth } from '@/src/store/hooks';
+import { useAppDispatch, useUserInfo } from '@/src/store/hooks';
+import { logoutUser } from '@/src/store/slices/authSlice';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const DRAWER_WIDTH = SCREEN_WIDTH * 0.8; // 抽屉宽度为屏幕的80%
 
 export default function DrawerMenu({ visible, onClose }) {
-  const { userInfo, logout } = useAuth();
+  const userInfo = useUserInfo(); // 使用统一的 userInfo hook（优先使用 profile.userInfo）
+  const dispatch = useAppDispatch();
   const router = useRouter();
   const slideAnim = React.useRef(new Animated.Value(-DRAWER_WIDTH)).current;
   const backdropOpacity = React.useRef(new Animated.Value(0)).current;
+
+  // 底部账户抽屉状态
+  const [showAccountSheet, setShowAccountSheet] = React.useState(false);
+  const sheetSlideAnim = React.useRef(new Animated.Value(300)).current;
+  const sheetBackdropOpacity = React.useRef(new Animated.Value(0)).current;
 
   // 抽屉动画效果
   React.useEffect(() => {
@@ -65,12 +73,52 @@ export default function DrawerMenu({ visible, onClose }) {
     }
   }, [visible]);
 
+  // 底部抽屉动画效果
+  React.useEffect(() => {
+    if (showAccountSheet) {
+      // 打开底部抽屉
+      Animated.parallel([
+        Animated.spring(sheetSlideAnim, {
+          toValue: 0,
+          useNativeDriver: true,
+          tension: 65,
+          friction: 11,
+        }),
+        Animated.timing(sheetBackdropOpacity, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      // 关闭底部抽屉
+      Animated.parallel([
+        Animated.timing(sheetSlideAnim, {
+          toValue: 300,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+        Animated.timing(sheetBackdropOpacity, {
+          toValue: 0,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [showAccountSheet]);
+
   // Android返回键支持
   React.useEffect(() => {
     if (visible) {
       const backHandler = BackHandler.addEventListener(
         'hardwareBackPress',
         () => {
+          // 如果底部抽屉打开，先关闭底部抽屉
+          if (showAccountSheet) {
+            setShowAccountSheet(false);
+            return true;
+          }
+          // 否则关闭侧边抽屉
           onClose();
           return true; // 阻止默认的返回行为（退出应用）
         }
@@ -78,7 +126,7 @@ export default function DrawerMenu({ visible, onClose }) {
 
       return () => backHandler.remove();
     }
-  }, [visible, onClose]);
+  }, [visible, showAccountSheet, onClose]);
 
   const handleNavigate = (path) => {
     onClose();
@@ -88,9 +136,46 @@ export default function DrawerMenu({ visible, onClose }) {
   };
 
   const handleLogout = () => {
-    onClose();
+    // 关闭底部抽屉
+    setShowAccountSheet(false);
+    
+    // 显示确认对话框
     setTimeout(() => {
-      logout();
+      Alert.alert(
+        '确认退出',
+        '您确定要退出登录吗？',
+        [
+          {
+            text: '取消',
+            style: 'cancel',
+          },
+          {
+            text: '退出',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                // 调用 Redux action 退出登录
+                await dispatch(logoutUser()).unwrap();
+                
+                // 退出登录成功后，关闭侧边抽屉
+                onClose();
+                
+                // 延迟导航到登录页面
+                setTimeout(() => {
+                  router.replace('/(auth)/login');
+                }, 300);
+              } catch (error) {
+                console.error('退出登录失败:', error);
+                // 即使失败也关闭抽屉并跳转
+                onClose();
+                setTimeout(() => {
+                  router.replace('/(auth)/login');
+                }, 300);
+              }
+            },
+          },
+        ]
+      );
     }, 300);
   };
 
@@ -178,14 +263,18 @@ export default function DrawerMenu({ visible, onClose }) {
                 </View>
               </TouchableOpacity>
               
-              {/* 账户图标（仅作为装饰） */}
-              <View style={styles.accountButton}>
+              {/* 账户切换按钮 */}
+              <TouchableOpacity 
+                style={styles.accountButton}
+                onPress={() => setShowAccountSheet(true)}
+                accessibilityLabel="切换账号"
+              >
                 <Ionicons 
                   name="person-circle-outline" 
                   size={28} 
                   color={COLORS.primary[600]} 
                 />
-              </View>
+              </TouchableOpacity>
             </View>
 
             {/* 统计数据 */}
@@ -277,6 +366,112 @@ export default function DrawerMenu({ visible, onClose }) {
             <View style={styles.bottomPlaceholder} />
           </ScrollView>
         </Animated.View>
+
+        {/* 底部账户切换抽屉 */}
+        {showAccountSheet && (
+          <>
+            {/* 底部抽屉的遮罩层 */}
+            <Animated.View
+              style={[
+                styles.sheetBackdrop,
+                {
+                  opacity: sheetBackdropOpacity,
+                },
+              ]}
+            >
+              <TouchableOpacity
+                style={StyleSheet.absoluteFillObject}
+                activeOpacity={1}
+                onPress={() => setShowAccountSheet(false)}
+              />
+            </Animated.View>
+
+            {/* 底部抽屉内容 */}
+            <Animated.View
+              style={[
+                styles.bottomSheet,
+                {
+                  transform: [{ translateY: sheetSlideAnim }],
+                },
+              ]}
+              onStartShouldSetResponder={() => true}
+              onTouchEnd={(e) => e.stopPropagation()}
+            >
+              {/* 抽屉顶部拖动条 */}
+              <View style={styles.sheetHandle}>
+                <View style={styles.sheetHandleBar} />
+              </View>
+
+              {/* 标题 */}
+              <View style={styles.sheetHeader}>
+                <Text style={styles.sheetTitle}>账户管理</Text>
+              </View>
+
+              {/* 选项列表 */}
+              <View style={styles.sheetContent}>
+                <TouchableOpacity
+                  style={styles.sheetOption}
+                  onPress={() => {
+                    setShowAccountSheet(false);
+                    setTimeout(() => {
+                      handleNavigate('/auth/register');
+                    }, 300);
+                  }}
+                >
+                  <View style={styles.sheetOptionIcon}>
+                    <Ionicons name="person-add-outline" size={24} color={COLORS.primary[600]} />
+                  </View>
+                  <View style={styles.sheetOptionContent}>
+                    <Text style={styles.sheetOptionTitle}>创建新账号</Text>
+                    <Text style={styles.sheetOptionDescription}>注册一个全新的 GoAbroad 账号</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color={COLORS.gray[400]} />
+                </TouchableOpacity>
+
+                <View style={styles.sheetDivider} />
+
+                <TouchableOpacity
+                  style={styles.sheetOption}
+                  onPress={() => {
+                    setShowAccountSheet(false);
+                    setTimeout(() => {
+                      handleNavigate('/auth/login');
+                    }, 300);
+                  }}
+                >
+                  <View style={styles.sheetOptionIcon}>
+                    <Ionicons name="people-outline" size={24} color={COLORS.primary[600]} />
+                  </View>
+                  <View style={styles.sheetOptionContent}>
+                    <Text style={styles.sheetOptionTitle}>添加已有账号</Text>
+                    <Text style={styles.sheetOptionDescription}>登录并切换到其他账号</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color={COLORS.gray[400]} />
+                </TouchableOpacity>
+
+                <View style={styles.sheetDivider} />
+
+                <TouchableOpacity
+                  style={styles.sheetOption}
+                  onPress={() => {
+                    setShowAccountSheet(false);
+                    setTimeout(() => {
+                      handleLogout();
+                    }, 300);
+                  }}
+                >
+                  <View style={styles.sheetOptionIcon}>
+                    <Ionicons name="log-out-outline" size={24} color={COLORS.error[500]} />
+                  </View>
+                  <View style={styles.sheetOptionContent}>
+                    <Text style={[styles.sheetOptionTitle, { color: COLORS.error[500] }]}>退出登录</Text>
+                    <Text style={styles.sheetOptionDescription}>退出当前账号</Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            </Animated.View>
+          </>
+        )}
       </View>
     </Modal>
   );
@@ -433,6 +628,92 @@ const styles = StyleSheet.create({
   // 底部占位
   bottomPlaceholder: {
     height: 40,
+  },
+
+  // 底部抽屉样式
+  sheetBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    zIndex: 100, // 确保在侧边抽屉上方
+  },
+  bottomSheet: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: COLORS.white,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingBottom: 40,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 10,
+    zIndex: 101, // 确保在遮罩上方
+  },
+  sheetHandle: {
+    alignItems: 'center',
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  sheetHandleBar: {
+    width: 40,
+    height: 4,
+    backgroundColor: COLORS.gray[300],
+    borderRadius: 2,
+  },
+  sheetHeader: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.gray[100],
+  },
+  sheetTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.gray[900],
+    textAlign: 'center',
+  },
+  sheetContent: {
+    paddingVertical: 8,
+  },
+  sheetOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  sheetOptionIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: COLORS.gray[50],
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  sheetOptionContent: {
+    flex: 1,
+  },
+  sheetOptionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.gray[900],
+    marginBottom: 4,
+  },
+  sheetOptionDescription: {
+    fontSize: 14,
+    color: COLORS.gray[500],
+  },
+  sheetDivider: {
+    height: 1,
+    backgroundColor: COLORS.gray[100],
+    marginLeft: 84, // 对齐图标右侧
   },
 });
 

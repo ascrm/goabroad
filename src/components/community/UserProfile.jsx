@@ -62,7 +62,7 @@ export default function UserProfile({ user, isOwnProfile = false }) {
       <View style={styles.profileCard}>
         {/* 头像 */}
         <View style={styles.avatarContainer}>
-          <Image source={{ uri: user.avatar }} style={styles.avatar} />
+          <Image source={{ uri: user.avatarUrl || user.avatar }} style={styles.avatar} />
           {user.isVerified && (
             <View style={styles.verifiedBadge}>
               <Ionicons name="checkmark-circle" size={24} color={COLORS.primary[600]} />

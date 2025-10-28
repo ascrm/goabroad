@@ -186,6 +186,8 @@ const authSlice = createSlice({
         
         // 保存 token 到 AsyncStorage
         setAuthToken(action.payload.token);
+        
+        console.log('✅ 登录成功，用户信息:', action.payload.userInfo);
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.loading = false;
@@ -209,6 +211,8 @@ const authSlice = createSlice({
         
         // 保存 token 到 AsyncStorage
         setAuthToken(action.payload.token);
+        
+        console.log('✅ 注册成功，用户信息:', action.payload.userInfo);
       })
       .addCase(registerUser.rejected, (state, action) => {
         state.loading = false;

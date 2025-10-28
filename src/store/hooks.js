@@ -22,8 +22,25 @@ export const useUI = () => useAppSelector((state) => state.ui);
 
 // 便捷的认证状态选择器
 export const useIsLoggedIn = () => useAppSelector((state) => state.auth.isLoggedIn);
-export const useUserInfo = () => useAppSelector((state) => state.auth.userInfo);
 export const useToken = () => useAppSelector((state) => state.auth.token);
+
+/**
+ * 获取用户信息
+ * 优先使用 profile.userInfo（完整信息），如果为空则回退到 auth.userInfo
+ * @returns {Object} 用户信息对象
+ */
+export const useUserInfo = () => {
+  const profileUserInfo = useAppSelector((state) => state.profile?.userInfo);
+  const authUserInfo = useAppSelector((state) => state.auth?.userInfo);
+  
+  // 判断 profile.userInfo 是否有效（有 id 说明已同步）
+  if (profileUserInfo && profileUserInfo.id) {
+    return profileUserInfo;
+  }
+  
+  // 回退到 auth.userInfo
+  return authUserInfo;
+};
 
 // 便捷的用户信息选择器
 export const useUserProfile = () => useAppSelector((state) => state.user.profile);

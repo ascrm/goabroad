@@ -4,12 +4,13 @@
  */
 
 import { createSlice } from '@reduxjs/toolkit';
+import { loginUser, registerUser, logoutUser } from './authSlice';
 
 const initialState = {
   // 用户信息
   userInfo: {
     id: null,
-    avatar: null,
+    avatarUrl: null, // 使用 avatarUrl 与 API 保持一致
     nickname: '',
     username: '',
     signature: '',
@@ -20,6 +21,8 @@ const initialState = {
     birthday: null,
     location: '',
     education: [],
+    phone: '', // 手机号
+    email: '', // 邮箱
   },
   
   // 会员信息
@@ -90,7 +93,7 @@ const profileSlice = createSlice({
     
     // 更新头像
     updateAvatar: (state, action) => {
-      state.userInfo.avatar = action.payload;
+      state.userInfo.avatarUrl = action.payload;
     },
     
     // 更新昵称
@@ -194,6 +197,83 @@ const profileSlice = createSlice({
     
     // 重置状态
     resetProfile: () => initialState,
+  },
+  extraReducers: (builder) => {
+    builder
+      // 监听登录成功，同步用户信息到 profile
+      .addCase(loginUser.fulfilled, (state, action) => {
+        const userInfo = action.payload.userInfo;
+        if (userInfo) {
+          console.log('🔄 Profile: 同步登录用户信息到 profile', userInfo);
+          state.userInfo = {
+            ...state.userInfo,
+            id: userInfo.id,
+            username: userInfo.username,
+            nickname: userInfo.nickname || userInfo.username,
+            avatarUrl: userInfo.avatarUrl || userInfo.avatar || null,
+            phone: userInfo.phone || '',
+            email: userInfo.email || '',
+            gender: userInfo.gender || null,
+            birthday: userInfo.birthday || null,
+            location: userInfo.location || '',
+            signature: userInfo.bio || userInfo.signature || '',
+            level: userInfo.level || 1,
+            experience: userInfo.experience || 0,
+          };
+          
+          // 同步统计数据
+          if (userInfo.stats) {
+            state.stats = {
+              ...state.stats,
+              postsCount: userInfo.stats.postsCount || 0,
+              favoritesCount: userInfo.stats.favoritesCount || 0,
+              likesCount: userInfo.stats.likesCount || 0,
+            };
+          }
+        }
+      })
+      // 监听注册成功，同步用户信息到 profile
+      .addCase(registerUser.fulfilled, (state, action) => {
+        const userInfo = action.payload.userInfo;
+        if (userInfo) {
+          console.log('🔄 Profile: 同步注册用户信息到 profile', userInfo);
+          state.userInfo = {
+            ...state.userInfo,
+            id: userInfo.id,
+            username: userInfo.username,
+            nickname: userInfo.nickname || userInfo.username,
+            avatarUrl: userInfo.avatarUrl || userInfo.avatar || null,
+            phone: userInfo.phone || '',
+            email: userInfo.email || '',
+            gender: userInfo.gender || null,
+            birthday: userInfo.birthday || null,
+            location: userInfo.location || '',
+            signature: userInfo.bio || userInfo.signature || '',
+            level: userInfo.level || 1,
+            experience: userInfo.experience || 0,
+          };
+          
+          // 同步统计数据
+          if (userInfo.stats) {
+            state.stats = {
+              ...state.stats,
+              postsCount: userInfo.stats.postsCount || 0,
+              favoritesCount: userInfo.stats.favoritesCount || 0,
+              likesCount: userInfo.stats.likesCount || 0,
+            };
+          }
+        }
+      })
+      // 监听登出，重置 profile
+      .addCase(logoutUser.fulfilled, (state) => {
+        console.log('🔄 Profile: 登出，重置 profile 状态');
+        return initialState;
+      })
+      .addCase(logoutUser.rejected, (state) => {
+        // 即使后端登出失败，前端也要清除状态
+        console.log('🔄 Profile: 登出失败，仍然重置 profile 状态');
+        return initialState;
+      });
   },
 });
 

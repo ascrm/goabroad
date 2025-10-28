@@ -10,36 +10,38 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    KeyboardAvoidingView,
-    Platform,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 import { COLORS } from '@/src/constants';
 import * as userApi from '@/src/services/api/modules/userApi';
 import { useAppDispatch, useAppSelector } from '@/src/store/hooks';
+import { selectAuthUserInfo } from '@/src/store/slices/authSlice';
 import {
-    selectUserInfo,
-    setUserInfo,
-    updateAvatar,
+  selectUserInfo,
+  setUserInfo,
+  updateAvatar,
 } from '@/src/store/slices/profileSlice';
 
 export default function EditProfile() {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const userInfo = useAppSelector(selectUserInfo);
+  const authUserInfo = useAppSelector(selectAuthUserInfo);
 
   // 状态
-  const [avatar, setAvatar] = useState(userInfo.avatar);
+  const [avatar, setAvatar] = useState(userInfo.avatarUrl);
   const [nickname, setNickname] = useState(userInfo.nickname || '');
   const [gender, setGender] = useState(userInfo.gender || null);
   const [birthday, setBirthday] = useState(
@@ -108,7 +110,7 @@ export default function EditProfile() {
     try {
       // 1. 如果头像有变化，先上传头像
       let avatarUrl = avatar;
-      if (avatar !== userInfo.avatar && avatar && !avatar.startsWith('http')) {
+      if (avatar !== userInfo.avatarUrl && avatar && !avatar.startsWith('http')) {
         try {
           const fileName = avatar.split('/').pop();
           const fileType = fileName.split('.').pop();
@@ -119,7 +121,7 @@ export default function EditProfile() {
           };
           
           const avatarResponse = await userApi.uploadAvatar(avatarFile);
-          avatarUrl = avatarResponse.data?.avatar || avatar;
+          avatarUrl = avatarResponse.data?.avatarUrl || avatarResponse.data?.avatar || avatar;
         } catch (error) {
           console.warn('头像上传失败，使用本地路径', error);
         }
@@ -138,19 +140,39 @@ export default function EditProfile() {
       const response = await userApi.updateUserProfile(profileData);
 
       // 3. 更新本地 Redux 状态
-      if (avatarUrl !== userInfo.avatar) {
+      const updatedUserInfo = {
+        nickname: nickname.trim(),
+        gender,
+        birthday: birthday?.toISOString(),
+        location: location.trim(),
+        signature: signature.trim(),
+      };
+
+      // 更新头像（如果有变化）
+      if (avatarUrl !== userInfo.avatarUrl) {
         dispatch(updateAvatar(avatarUrl));
+        updatedUserInfo.avatarUrl = avatarUrl;
       }
 
-      dispatch(
-        setUserInfo({
-          nickname: nickname.trim(),
-          gender,
-          birthday: birthday?.toISOString(),
-          location: location.trim(),
-          signature: signature.trim(),
-        })
-      );
+      // 更新 profile.userInfo
+      dispatch(setUserInfo(updatedUserInfo));
+
+      // 同时更新 auth.userInfo，保持数据一致性
+      if (authUserInfo) {
+        // 使用 authSlice 的 setAuthState action 更新用户信息
+        const { setAuthState } = require('@/src/store/slices/authSlice');
+        dispatch(setAuthState({
+          isLoggedIn: true,
+          token: null, // token 不需要改变
+          userInfo: {
+            ...authUserInfo,
+            ...updatedUserInfo,
+          },
+        }));
+        console.log('✅ 资料保存成功，已同步更新 auth 和 profile 状态');
+      } else {
+        console.log('✅ 资料保存成功，已更新 profile 状态');
+      }
 
       Alert.alert('成功', '保存成功', [
         { text: '确定', onPress: () => router.back() },
@@ -216,7 +238,6 @@ export default function EditProfile() {
               onPress={handleSelectAvatar}
               style={styles.changeAvatarBtn}
             >
-              <Text style={styles.changeAvatarText}>更换头像</Text>
             </TouchableOpacity>
           </View>
 

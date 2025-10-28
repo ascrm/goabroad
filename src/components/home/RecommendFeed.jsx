@@ -18,7 +18,7 @@ const MOCK_POSTS = [
     title: '美国F1签证面签攻略（2024最新版）',
     author: {
       name: '留学小王',
-      avatar: 'https://i.pravatar.cc/150?img=1',
+      avatarUrl: 'https://i.pravatar.cc/150?img=1',
     },
     coverImage: 'https://images.unsplash.com/photo-1569098644584-210bcd375b59?w=400',
     tags: ['美国留学', 'F1签证'],
@@ -31,7 +31,7 @@ const MOCK_POSTS = [
     title: '从零DIY英国研究生申请，成功拿到UCL offer',
     author: {
       name: '英伦小姐姐',
-      avatar: 'https://i.pravatar.cc/150?img=5',
+      avatarUrl: 'https://i.pravatar.cc/150?img=5',
     },
     coverImage: 'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?w=400',
     tags: ['英国留学', 'DIY申请'],
@@ -44,7 +44,7 @@ const MOCK_POSTS = [
     title: '日本留学生活费用详解 + 省钱攻略',
     author: {
       name: '东京留学日记',
-      avatar: 'https://i.pravatar.cc/150?img=8',
+      avatarUrl: 'https://i.pravatar.cc/150?img=8',
     },
     coverImage: 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=400',
     tags: ['日本留学', '生活费用'],
@@ -94,7 +94,7 @@ const PostCard = ({ post }) => {
         <View style={styles.postFooter}>
           <View style={styles.authorSection}>
             <Image
-              source={{ uri: post.author.avatar }}
+              source={{ uri: post.author.avatarUrl || post.author.avatar }}
               style={styles.authorAvatar}
               contentFit="cover"
             />

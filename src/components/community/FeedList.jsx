@@ -6,12 +6,12 @@
 import PropTypes from 'prop-types';
 import React, { useCallback, useState } from 'react';
 import {
-  ActivityIndicator,
-  FlatList,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  View,
+    ActivityIndicator,
+    FlatList,
+    RefreshControl,
+    StyleSheet,
+    Text,
+    View,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 
@@ -45,11 +45,11 @@ const generateMockPosts = (page = 1, count = 20) => {
   ];
 
   const authors = [
-    { id: 1, name: '留学小王', avatar: 'https://i.pravatar.cc/150?img=1' },
-    { id: 2, name: '英伦达人', avatar: 'https://i.pravatar.cc/150?img=2' },
-    { id: 3, name: '移民顾问李', avatar: 'https://i.pravatar.cc/150?img=3' },
-    { id: 4, name: 'WHV探险家', avatar: 'https://i.pravatar.cc/150?img=4' },
-    { id: 5, name: '留学规划师', avatar: 'https://i.pravatar.cc/150?img=5' },
+    { id: 1, name: '留学小王', avatarUrl: 'https://i.pravatar.cc/150?img=1' },
+    { id: 2, name: '英伦达人', avatarUrl: 'https://i.pravatar.cc/150?img=2' },
+    { id: 3, name: '移民顾问李', avatarUrl: 'https://i.pravatar.cc/150?img=3' },
+    { id: 4, name: 'WHV探险家', avatarUrl: 'https://i.pravatar.cc/150?img=4' },
+    { id: 5, name: '留学规划师', avatarUrl: 'https://i.pravatar.cc/150?img=5' },
   ];
 
   const topics = ['美国留学', 'F1签证', '英国硕士', '加拿大移民', '雅思备考', '澳洲WHV'];

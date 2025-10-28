@@ -176,7 +176,7 @@ export default function PostDetail({ post, onShare }) {
           activeOpacity={0.7}
         >
           <Image
-            source={{ uri: post.author.avatar || 'https://via.placeholder.com/50' }}
+            source={{ uri: post.author.avatarUrl || post.author.avatar || 'https://via.placeholder.com/50' }}
             style={styles.avatar}
           />
           <View style={styles.authorDetails}>

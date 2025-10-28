@@ -78,7 +78,7 @@ export default function CommentItem({ comment, onReply, isAuthorComment = false 
       {/* 头像 */}
       <TouchableOpacity onPress={handleUserPress} activeOpacity={0.7}>
         <Image
-          source={{ uri: comment.user.avatar || 'https://via.placeholder.com/36' }}
+          source={{ uri: comment.user.avatarUrl || comment.user.avatar || 'https://via.placeholder.com/36' }}
           style={styles.avatar}
         />
       </TouchableOpacity>

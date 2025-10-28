@@ -6,111 +6,126 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-    FlatList,
-    Image,
-    RefreshControl,
-    SafeAreaView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  FlatList,
+  Image,
+  RefreshControl,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 import { COLORS } from '@/src/constants';
-
-// 模拟数据
-const MOCK_POSTS = [
-  {
-    id: '1',
-    type: 'post',
-    title: '分享我的美国留学申请经验',
-    content: '经过一年的准备，终于收到了心仪学校的offer...',
-    images: [],
-    likes: 128,
-    comments: 45,
-    favorites: 67,
-    views: 1234,
-    createdAt: '2024-10-20',
-    status: 'published',
-  },
-  {
-    id: '2',
-    type: 'question',
-    title: '关于GRE考试的一些疑问',
-    content: '请问大家GRE verbal部分如何提高...',
-    images: [],
-    likes: 56,
-    comments: 23,
-    favorites: 34,
-    views: 567,
-    createdAt: '2024-10-15',
-    status: 'published',
-  },
-  {
-    id: '3',
-    type: 'post',
-    title: '英国签证办理攻略',
-    content: '整理了一份详细的英国学生签证办理流程...',
-    images: ['https://picsum.photos/200/300'],
-    likes: 234,
-    comments: 89,
-    favorites: 156,
-    views: 2345,
-    createdAt: '2024-10-10',
-    status: 'published',
-  },
-];
+import { useAppDispatch, useAppSelector } from '@/src/store/hooks';
+import { selectAuthUserInfo } from '@/src/store/slices/authSlice';
+import {
+  clearPosts,
+  fetchUserPosts,
+  selectUserPosts,
+} from '@/src/store/slices/userSlice';
 
 export default function MyPosts() {
   const router = useRouter();
-  const [posts, setPosts] = useState(MOCK_POSTS);
+  const dispatch = useAppDispatch();
+  
+  const authUserInfo = useAppSelector(selectAuthUserInfo);
+  const userPostsState = useAppSelector(selectUserPosts);
+  const posts = userPostsState?.items || [];
+  const pagination = userPostsState?.pagination;
+  const loading = userPostsState?.loading || false;
+  
   const [refreshing, setRefreshing] = useState(false);
-  const [filter, setFilter] = useState('all'); // 'all', 'post', 'question', 'video'
+  const [filter, setFilter] = useState('all'); // 'all', 'POST', 'QUESTION', 'TIMELINE'
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  // 页面初始化时获取数据
+  useEffect(() => {
+    if (authUserInfo?.id) {
+      loadPosts(1, filter, true);
+    }
+    
+    // 组件卸载时清空数据
+    return () => {
+      dispatch(clearPosts());
+    };
+  }, []);
+
+  // 加载帖子列表
+  const loadPosts = async (page = 1, type = 'all', isInitial = false) => {
+    if (!authUserInfo?.id) return;
+    
+    try {
+      await dispatch(
+        fetchUserPosts({
+          userId: authUserInfo.id,
+          page,
+          pageSize: 20,
+          type,
+        })
+      ).unwrap();
+    } catch (error) {
+      console.error('加载帖子失败:', error);
+    }
+  };
 
   // 刷新
   const handleRefresh = async () => {
     setRefreshing(true);
-    // TODO: 调用 API 刷新数据
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await loadPosts(1, filter, true);
     setRefreshing(false);
   };
 
-  // 筛选帖子
-  const getFilteredPosts = () => {
-    if (filter === 'all') return posts;
-    return posts.filter((post) => post.type === filter);
+  // 切换筛选类型
+  const handleFilterChange = async (newFilter) => {
+    if (newFilter === filter) return;
+    setFilter(newFilter);
+    await loadPosts(1, newFilter, true);
+  };
+
+  // 加载更多
+  const handleLoadMore = async () => {
+    if (loadingMore || loading || !pagination) return;
+    
+    const { currentPage, totalPages } = pagination;
+    if (currentPage >= totalPages) return;
+    
+    setLoadingMore(true);
+    await loadPosts(currentPage + 1, filter, false);
+    setLoadingMore(false);
   };
 
   // 获取类型文本
   const getTypeText = (type) => {
     const map = {
-      post: '帖子',
-      question: '提问',
-      video: '视频',
+      POST: '帖子',
+      QUESTION: '提问',
+      TIMELINE: '视频',
     };
-    return map[type] || type;
+    return map[type?.toUpperCase()] || type;
   };
 
   // 获取类型图标
   const getTypeIcon = (type) => {
     const map = {
-      post: 'document-text',
-      question: 'help-circle',
-      video: 'videocam',
+      POST: 'document-text',
+      QUESTION: 'help-circle',
+      TIMELINE: 'videocam',
     };
-    return map[type] || 'document-text';
+    return map[type?.toUpperCase()] || 'document-text';
   };
 
   // 获取类型颜色
   const getTypeColor = (type) => {
     const map = {
-      post: COLORS.primary[600],
-      question: COLORS.info[600],
-      video: COLORS.error[600],
+      POST: COLORS.primary[600],
+      QUESTION: COLORS.info[600],
+      TIMELINE: COLORS.error[600],
     };
-    return map[type] || COLORS.primary[600];
+    return map[type?.toUpperCase()] || COLORS.primary[600];
   };
 
   // 格式化数字
@@ -208,7 +223,7 @@ export default function MyPosts() {
         styles.filterButton,
         filter === value && styles.filterButtonActive,
       ]}
-      onPress={() => setFilter(value)}
+      onPress={() => handleFilterChange(value)}
       activeOpacity={0.7}
     >
       <Text
@@ -223,26 +238,46 @@ export default function MyPosts() {
   );
 
   // 空状态
-  const renderEmptyState = () => (
-    <View style={styles.emptyContainer}>
-      <Ionicons
-        name="document-text-outline"
-        size={64}
-        color={COLORS.gray[300]}
-      />
-      <Text style={styles.emptyText}>还没有发布内容</Text>
-      <TouchableOpacity
-        style={styles.createButton}
-        onPress={() => router.push('/community/create')}
-        activeOpacity={0.7}
-      >
-        <Ionicons name="add" size={20} color={COLORS.white} />
-        <Text style={styles.createButtonText}>发布内容</Text>
-      </TouchableOpacity>
-    </View>
-  );
+  const renderEmptyState = () => {
+    if (loading) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={COLORS.primary[600]} />
+          <Text style={styles.loadingText}>加载中...</Text>
+        </View>
+      );
+    }
+    
+    return (
+      <View style={styles.emptyContainer}>
+        <Ionicons
+          name="document-text-outline"
+          size={64}
+          color={COLORS.gray[300]}
+        />
+        <Text style={styles.emptyText}>还没有发布内容</Text>
+        <TouchableOpacity
+          style={styles.createButton}
+          onPress={() => router.push('/community/create')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="add" size={20} color={COLORS.white} />
+          <Text style={styles.createButtonText}>发布内容</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
 
-  const filteredPosts = getFilteredPosts();
+  // 列表底部加载更多指示器
+  const renderFooter = () => {
+    if (!loadingMore) return null;
+    return (
+      <View style={styles.footerLoading}>
+        <ActivityIndicator size="small" color={COLORS.primary[600]} />
+        <Text style={styles.footerText}>加载更多...</Text>
+      </View>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -270,16 +305,16 @@ export default function MyPosts() {
       {/* 筛选栏 */}
       <View style={styles.filterContainer}>
         <FilterButton value="all" label="全部" />
-        <FilterButton value="post" label="帖子" />
-        <FilterButton value="question" label="提问" />
-        <FilterButton value="video" label="视频" />
+        <FilterButton value="POST" label="帖子" />
+        <FilterButton value="QUESTION" label="提问" />
+        <FilterButton value="TIMELINE" label="视频" />
       </View>
 
       {/* 帖子列表 */}
       <FlatList
-        data={filteredPosts}
+        data={posts || []}
         renderItem={renderPostCard}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item.id?.toString()}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -290,6 +325,9 @@ export default function MyPosts() {
           />
         }
         ListEmptyComponent={renderEmptyState}
+        ListFooterComponent={renderFooter}
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.3}
       />
     </SafeAreaView>
   );
@@ -457,6 +495,28 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.white,
     marginLeft: 6,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 80,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: COLORS.gray[500],
+    marginTop: 12,
+  },
+  footerLoading: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 20,
+    gap: 8,
+  },
+  footerText: {
+    fontSize: 13,
+    color: COLORS.gray[500],
   },
 });
 

@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DrawerGestureWrapper, DrawerMenu, TopNavigationBar } from '@/src/components/layout';
 import { COLORS } from '@/src/constants';
-import { useAppSelector, useAuth } from '@/src/store/hooks';
+import { useAppSelector, useUserInfo } from '@/src/store/hooks';
 
 // 创建抽屉上下文，用于在所有 tabs 中共享抽屉状态
 const DrawerContext = createContext({
@@ -26,7 +26,7 @@ export const useDrawer = () => useContext(DrawerContext);
 export default function TabsLayout() {
   const router = useRouter();
   const pathname = usePathname();
-  const { userInfo } = useAuth();
+  const userInfo = useUserInfo(); // 使用统一的 userInfo hook（优先使用 profile.userInfo）
   
   // 从 Redux 获取角标数据
   const todoCount = useAppSelector((state) => state.planning.todoCount);
