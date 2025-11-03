@@ -37,9 +37,6 @@ const onTokenRefreshed = (token) => {
  */
 apiClient.interceptors.request.use(
   async (config) => {
-    // 添加请求元数据（用于计算耗时）
-    config.metadata = { startTime: Date.now() };
-    
     const token = await getAuthToken();
     if (token) {
       config.headers.Authorization = token;
@@ -48,14 +45,7 @@ apiClient.interceptors.request.use(
     // 打印请求日志（调试用）
     console.log('==================== API 请求 ====================');
     console.log('URL:', config.url);
-    console.log('Method:', config.method?.toUpperCase());
-    console.log('Headers:', JSON.stringify(config.headers, null, 2));
-    if (config.data) {
-      console.log('Request Data:', JSON.stringify(config.data, null, 2));
-    }
-    if (config.params) {
-      console.log('Request Params:', JSON.stringify(config.params, null, 2));
-    }
+    console.log('Request Payload:', JSON.stringify({ data: config.data, params: config.params }, null, 2));
     console.log('==================================================');
     
     return config;
@@ -71,15 +61,10 @@ apiClient.interceptors.request.use(
  */
 apiClient.interceptors.response.use(
   (response) => {
-    // 计算请求耗时
-    const duration = Date.now() - response.config.metadata.startTime;
     
     // 打印响应日志（调试用）
     console.log('==================== API 响应 ====================');
     console.log('URL:', response.config.url);
-    console.log('Method:', response.config.method?.toUpperCase());
-    console.log('Status:', response.status);
-    console.log('Duration:', duration + 'ms');
     console.log('Response Data:', JSON.stringify(response.data, null, 2));
     console.log('==================================================');
     
@@ -89,16 +74,9 @@ apiClient.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
     
-    // 打印错误日志（调试用）
-    console.log('==================== API 错误 ====================');
-    console.log('URL:', originalRequest?.url);
-    console.log('Method:', originalRequest?.method?.toUpperCase());
-    
-    // 处理网络错误
+    // 处理网络错误（先检查 error.response 是否存在）
     if (!error.response) {
-      console.error('[Network Error]', error.message);
-      console.log('==================================================');
-      
+      console.error('[Network Error]', error.message);      
       store.dispatch(showToast({
         type: 'error',
         message: '网络连接失败，请检查网络设置',
@@ -110,19 +88,13 @@ apiClient.interceptors.response.use(
       });
     }
     
+    // 解构响应数据
     const { status, data } = error.response;
-    
-    // 打印错误响应数据
-    console.log('Status:', status);
-    console.log('Error Data:', JSON.stringify(data, null, 2));
-    console.log('==================================================');
-    
-    // 初始化重试计数器
+  
+    // 处理 401 未授权错误（token 过期）
     if (!originalRequest._retryCount) {
       originalRequest._retryCount = 0;
     }
-    
-    // 处理 401 未授权错误（token 过期）
     if (status === 401 && originalRequest._retryCount < MAX_RETRY_COUNT) {
       if (isRefreshing) {
         // 如果正在刷新 token，将请求加入队列

@@ -130,8 +130,9 @@ export default function MyFavorites() {
     return map[type?.toUpperCase()] || COLORS.primary[600];
   };
 
-  // 格式化数字
+  // 格式化数字（添加空值检查）
   const formatNumber = (num) => {
+    if (!num && num !== 0) return '0';
     if (num >= 10000) return `${(num / 10000).toFixed(1)}w`;
     if (num >= 1000) return `${(num / 1000).toFixed(1)}k`;
     return num.toString();

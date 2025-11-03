@@ -5,9 +5,8 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React from 'react';
 import {
-    Pressable,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -32,18 +31,10 @@ export default function Community() {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const activeTab = useAppSelector((state) => state.community.activeTab);
-  const [showPublishMenu, setShowPublishMenu] = useState(false);
 
   // 切换 Tab
   const handleTabChange = (tabId) => {
     dispatch(setActiveTab(tabId));
-  };
-
-  // 发布按钮菜单
-  const handlePublish = (type) => {
-    setShowPublishMenu(false);
-    // 导航到发布页面
-    router.push('/community/create');
   };
 
   return (
@@ -87,68 +78,6 @@ export default function Community() {
 
       {/* Feed 流列表 */}
       <FeedList tab={activeTab} />
-
-      {/* 右下角悬浮发布按钮 */}
-      <View style={styles.fabContainer}>
-        {showPublishMenu && (
-          <>
-            {/* 遮罩 */}
-            <Pressable
-              style={styles.fabOverlay}
-              onPress={() => setShowPublishMenu(false)}
-            />
-            
-            {/* 菜单选项 */}
-            <View style={styles.fabMenu}>
-              <TouchableOpacity
-                style={styles.fabMenuItem}
-                onPress={() => handlePublish('post')}
-                activeOpacity={0.7}
-              >
-                <View style={styles.fabMenuIcon}>
-                  <Ionicons name="document-text" size={20} color={COLORS.primary[600]} />
-                </View>
-                <Text style={styles.fabMenuText}>发帖</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.fabMenuItem}
-                onPress={() => handlePublish('question')}
-                activeOpacity={0.7}
-              >
-                <View style={styles.fabMenuIcon}>
-                  <Ionicons name="help-circle" size={20} color={COLORS.info[600]} />
-                </View>
-                <Text style={styles.fabMenuText}>提问</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.fabMenuItem}
-                onPress={() => handlePublish('video')}
-                activeOpacity={0.7}
-              >
-                <View style={styles.fabMenuIcon}>
-                  <Ionicons name="videocam" size={20} color={COLORS.error[600]} />
-                </View>
-                <Text style={styles.fabMenuText}>视频</Text>
-              </TouchableOpacity>
-            </View>
-          </>
-        )}
-
-        {/* 主按钮 */}
-        <TouchableOpacity
-          style={styles.fab}
-          onPress={() => setShowPublishMenu(!showPublishMenu)}
-          activeOpacity={0.8}
-        >
-          <Ionicons
-            name={showPublishMenu ? 'close' : 'add'}
-            size={28}
-            color={COLORS.white}
-          />
-        </TouchableOpacity>
-      </View>
     </View>
   );
 }
@@ -190,68 +119,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: COLORS.primary[600],
-  },
-  fabContainer: {
-    position: 'absolute',
-    right: 16,
-    bottom: 24,
-  },
-  fabOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    width: 1000,
-    height: 1000,
-    transform: [{ translateX: -1000 + 56 }, { translateY: -1000 + 56 }],
-  },
-  fabMenu: {
-    position: 'absolute',
-    bottom: 72,
-    right: 0,
-    backgroundColor: COLORS.white,
-    borderRadius: 12,
-    paddingVertical: 8,
-    minWidth: 120,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  fabMenuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  fabMenuIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: COLORS.gray[100],
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  fabMenuText: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: COLORS.text.primary,
-  },
-  fab: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: COLORS.primary[500],
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
   },
 });
 

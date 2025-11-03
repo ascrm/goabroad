@@ -1,6 +1,6 @@
 /**
- * 个人主页
- * 显示用户完整信息、统计数据和功能入口
+ * 个人主页（X/Twitter 风格）
+ * 显示用户完整信息、统计数据和 Tab 内容切换
  */
 
 import { Ionicons } from '@expo/vector-icons';
@@ -8,24 +8,39 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Image,
-    RefreshControl,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  FlatList,
+  Image,
+  RefreshControl,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 import { COLORS } from '@/src/constants';
 import { useAppDispatch, useAppSelector } from '@/src/store/hooks';
 import { selectAuthUserInfo } from '@/src/store/slices/authSlice';
 import {
-    selectStats,
-    selectUserInfo,
+  selectStats,
+  selectUserInfo,
 } from '@/src/store/slices/profileSlice';
+import {
+  fetchUserPosts,
+  selectUserPosts,
+} from '@/src/store/slices/userSlice';
+
+// X/Twitter 风格配色
+const TWITTER_COLORS = {
+    mainBg: '#FFFFFF',
+    secondaryBg: '#F7F9F9',
+    mainText: '#0F1419',
+    secondaryText: '#536471',
+    border: '#EFF3F4',
+    link: '#1D9BF0',
+};
 
 export default function ProfileIndex() {
   const router = useRouter();
@@ -34,26 +49,45 @@ export default function ProfileIndex() {
   const userInfo = useAppSelector(selectUserInfo);
   const authUserInfo = useAppSelector(selectAuthUserInfo);
   const stats = useAppSelector(selectStats);
+  const userPostsState = useAppSelector(selectUserPosts);
   
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState('posts'); // posts, plans, favorites, replies
 
   // 使用 auth 或 profile 中的用户信息
   const displayUser = userInfo.id ? userInfo : authUserInfo || {};
 
   // 页面初始化
   useEffect(() => {
-    // 如果需要，这里可以调用 API 获取最新的用户信息
-    // fetchUserProfile();
-  }, []);
+    if (displayUser.id && activeTab === 'posts') {
+      loadPosts();
+    }
+  }, [displayUser.id, activeTab]);
+
+  // 加载帖子
+  const loadPosts = async () => {
+    if (!displayUser.id) return;
+    try {
+      await dispatch(
+        fetchUserPosts({
+          userId: displayUser.id,
+          page: 1,
+          pageSize: 20,
+        })
+      ).unwrap();
+    } catch (error) {
+      console.error('加载帖子失败:', error);
+    }
+  };
 
   // 刷新用户信息
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      // TODO: 调用 API 刷新用户信息
-      // await dispatch(fetchUserProfile(displayUser.id)).unwrap();
-      console.log('刷新用户信息');
+      if (activeTab === 'posts') {
+        await loadPosts();
+      }
+      // TODO: 刷新其他 Tab 的数据
     } catch (error) {
       console.error('刷新失败:', error);
     } finally {
@@ -61,54 +95,179 @@ export default function ProfileIndex() {
     }
   };
 
-  // 渲染统计项
-  const renderStatItem = (label, value, onPress) => (
-    <TouchableOpacity style={styles.statItem} onPress={onPress}>
-      <Text style={styles.statValue}>{value || 0}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </TouchableOpacity>
-  );
+  // 渲染 Tab 按钮
+  const renderTab = (key, label) => {
+    const isActive = activeTab === key;
+    return (
+      <TouchableOpacity
+        key={key}
+        style={styles.tabButton}
+        onPress={() => setActiveTab(key)}
+        activeOpacity={0.7}
+      >
+        <Text style={[styles.tabText, isActive && styles.tabTextActive]}>
+          {label}
+        </Text>
+        {isActive && <View style={styles.tabIndicator} />}
+      </TouchableOpacity>
+    );
+  };
 
-  // 渲染功能入口
-  const renderMenuItem = (icon, label, onPress, showBadge = false) => (
-    <TouchableOpacity style={styles.menuItem} onPress={onPress}>
-      <View style={styles.menuLeft}>
-        <View style={styles.menuIcon}>
-          <Ionicons name={icon} size={22} color={COLORS.primary[600]} />
-        </View>
-        <Text style={styles.menuLabel}>{label}</Text>
-      </View>
-      <View style={styles.menuRight}>
-        {showBadge && (
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>New</Text>
+  // 格式化时间（相对时间）
+  const formatTime = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diff = now - date;
+    const seconds = Math.floor(diff / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    if (days > 7) {
+      return date.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' });
+    }
+    if (days > 0) return `${days}天`;
+    if (hours > 0) return `${hours}小时`;
+    if (minutes > 0) return `${minutes}分钟`;
+    return '刚刚';
+  };
+
+  // 格式化数字
+  const formatNumber = (num) => {
+    if (!num && num !== 0) return '0';
+    if (num >= 10000) return `${(num / 10000).toFixed(1)}万`;
+    if (num >= 1000) return `${(num / 1000).toFixed(1)}k`;
+    return num.toString();
+  };
+
+  // 渲染帖子列表项（X/Twitter 风格）
+  const renderPostItem = ({ item }) => (
+    <TouchableOpacity
+      style={styles.postItem}
+      onPress={() => router.push(`/community/post/${item.id}`)}
+      activeOpacity={0.95}
+    >
+      <View style={styles.postContainer}>
+        {/* 左侧头像 */}
+        {displayUser.avatarUrl || displayUser.avatar ? (
+          <Image
+            source={{ uri: displayUser.avatarUrl || displayUser.avatar }}
+            style={styles.postAvatar}
+          />
+        ) : (
+          <View style={[styles.postAvatar, styles.postAvatarEmpty]}>
+            <Ionicons name="person" size={20} color={TWITTER_COLORS.secondaryText} />
           </View>
         )}
-        <Ionicons name="chevron-forward" size={20} color={COLORS.gray[400]} />
+
+        {/* 右侧内容 */}
+        <View style={styles.postContent}>
+          {/* 用户信息行 */}
+          <View style={styles.postHeader}>
+            <Text style={styles.postUserName}>
+              {displayUser.nickname || displayUser.username || '用户'}
+            </Text>
+            <Text style={styles.postUserHandle}>
+              {' '}@{displayUser.username || 'user'}
+            </Text>
+            <Text style={styles.postTime}> · {formatTime(item.createdAt)}</Text>
+          </View>
+
+          {/* 帖子内容 */}
+          {item.title && (
+            <Text style={styles.postTitle} numberOfLines={2}>
+              {item.title}
+            </Text>
+          )}
+          <Text style={styles.postText} numberOfLines={4}>
+            {item.contentPreview || item.content || '暂无内容'}
+          </Text>
+
+          {/* 图片 */}
+          {item.coverImage && (
+            <Image
+              source={{ uri: item.coverImage }}
+              style={styles.postImage}
+              resizeMode="cover"
+            />
+          )}
+
+          {/* 交互工具栏 */}
+          <View style={styles.postActions}>
+            <View style={styles.actionItem}>
+              <Ionicons name="chatbubble-outline" size={16} color={TWITTER_COLORS.secondaryText} />
+              <Text style={styles.actionText}>{formatNumber(item.commentCount)}</Text>
+            </View>
+            <View style={styles.actionItem}>
+              <Ionicons
+                name={item.isLiked ? 'heart' : 'heart-outline'}
+                size={16}
+                color={item.isLiked ? '#F91880' : TWITTER_COLORS.secondaryText}
+              />
+              <Text style={[styles.actionText, item.isLiked && { color: '#F91880' }]}>
+                {formatNumber(item.likeCount)}
+              </Text>
+            </View>
+            <View style={styles.actionItem}>
+              <Ionicons name="eye-outline" size={16} color={TWITTER_COLORS.secondaryText} />
+              <Text style={styles.actionText}>{formatNumber(item.viewCount)}</Text>
+            </View>
+          </View>
+        </View>
       </View>
     </TouchableOpacity>
   );
 
-  if (isLoading) {
+  // 渲染 Tab 内容
+  const renderTabContent = () => {
+    if (activeTab === 'posts') {
+      const posts = userPostsState?.items || [];
+      const loading = userPostsState?.loading || false;
+
+      if (loading) {
+        return (
+          <View style={styles.tabContentLoading}>
+            <ActivityIndicator size="large" color={TWITTER_COLORS.link} />
+          </View>
+        );
+      }
+
+      if (posts.length === 0) {
+        return (
+          <View style={styles.emptyState}>
+            <Ionicons name="document-text-outline" size={64} color={TWITTER_COLORS.border} />
+            <Text style={styles.emptyText}>还没有发布任何内容</Text>
+          </View>
+        );
+      }
+
+      return (
+        <FlatList
+          data={posts}
+          renderItem={renderPostItem}
+          keyExtractor={(item) => item.id?.toString()}
+          contentContainerStyle={styles.tabContentList}
+          showsVerticalScrollIndicator={false}
+        />
+      );
+    }
+
+    // 其他 Tab 的占位内容
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary[600]} />
+      <View style={styles.emptyState}>
+        <Ionicons name="folder-open-outline" size={64} color={TWITTER_COLORS.border} />
+        <Text style={styles.emptyText}>
+          {activeTab === 'plans' && '还没有创建行程'}
+          {activeTab === 'favorites' && '还没有收藏内容'}
+          {activeTab === 'replies' && '还没有回复'}
+        </Text>
       </View>
     );
-  }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar style="dark" />
-
-      {/* 顶部导航栏 */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.push('/profile/settings')}>
-          <Ionicons name="settings-outline" size={24} color={COLORS.gray[900]} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>个人中心</Text>
-        <View style={{ width: 24 }} />
-      </View>
+      <StatusBar style="light" />
 
       <ScrollView
         style={styles.scroll}
@@ -117,14 +276,26 @@ export default function ProfileIndex() {
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={handleRefresh}
-            tintColor={COLORS.primary[600]}
+            tintColor={COLORS.white}
           />
         }
       >
-        {/* 用户信息卡片 */}
-        <View style={styles.profileCard}>
-          {/* 头像和基本信息 */}
-          <View style={styles.userHeader}>
+        {/* Banner 背景 */}
+        <View style={styles.banner}>
+          {/* 设置按钮 */}
+          <TouchableOpacity
+            style={styles.settingsButton}
+            onPress={() => router.push('/profile/settings')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="settings-outline" size={20} color={COLORS.white} />
+          </TouchableOpacity>
+        </View>
+
+        {/* 用户信息区域 */}
+        <View style={styles.profileSection}>
+          {/* 头像和编辑按钮行 */}
+          <View style={styles.avatarRow}>
             <TouchableOpacity onPress={() => router.push('/profile/edit')}>
               {displayUser.avatarUrl || displayUser.avatar ? (
                 <Image
@@ -133,325 +304,314 @@ export default function ProfileIndex() {
                 />
               ) : (
                 <View style={[styles.avatar, styles.avatarEmpty]}>
-                  <Ionicons name="person" size={40} color={COLORS.gray[400]} />
+                  <Ionicons name="person" size={36} color={TWITTER_COLORS.secondaryText} />
                 </View>
               )}
             </TouchableOpacity>
 
-            <View style={styles.userInfo}>
-              <View style={styles.nameRow}>
-                <Text style={styles.nickname}>
-                  {displayUser.nickname || displayUser.username || '未设置昵称'}
-                </Text>
-                {displayUser.level && (
-                  <View style={styles.levelBadge}>
-                    <Ionicons name="star" size={12} color={COLORS.primary[600]} />
-                    <Text style={styles.levelText}>Lv.{displayUser.level}</Text>
-                  </View>
-                )}
-              </View>
+            <TouchableOpacity
+              style={styles.editButton}
+              onPress={() => router.push('/profile/edit')}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.editButtonText}>编辑资料</Text>
+            </TouchableOpacity>
+          </View>
 
-              {displayUser.signature || displayUser.bio ? (
-                <Text style={styles.signature} numberOfLines={2}>
-                  {displayUser.signature || displayUser.bio}
-                </Text>
-              ) : (
-                <Text style={styles.signaturePlaceholder}>还没有个性签名</Text>
-              )}
+          {/* 用户名和信息 */}
+          <View style={styles.userInfo}>
+            <Text style={styles.nickname}>
+              {displayUser.nickname || displayUser.username || '未设置昵称'}
+            </Text>
 
-              {/* 编辑资料按钮 */}
-              <TouchableOpacity
-                style={styles.editBtn}
-                onPress={() => router.push('/profile/edit')}
-              >
-                <Ionicons name="create-outline" size={16} color={COLORS.primary[600]} />
-                <Text style={styles.editBtnText}>编辑资料</Text>
-              </TouchableOpacity>
-            </View>
+            <Text style={styles.username}>
+              @{displayUser.username || 'user'}
+            </Text>
+
+            {displayUser.signature || displayUser.bio ? (
+              <Text style={styles.bio}>
+                {displayUser.signature || displayUser.bio}
+              </Text>
+            ) : null}
           </View>
 
           {/* 统计数据 */}
           <View style={styles.statsRow}>
-            {renderStatItem('帖子', stats.postsCount, () =>
-              router.push('/profile/my-posts')
-            )}
-            <View style={styles.statDivider} />
-            {renderStatItem('收藏', stats.favoritesCount, () =>
-              router.push('/profile/my-favorites')
-            )}
-            <View style={styles.statDivider} />
-            {renderStatItem('点赞', stats.likesCount, null)}
+            <TouchableOpacity
+              style={styles.statItem}
+              onPress={() => router.push('/profile/following')}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.statNumber}>{stats.followingCount || 0}</Text>
+              <Text style={styles.statLabel}> 正在关注</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.statItem}
+              onPress={() => router.push('/profile/followers')}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.statNumber}>{stats.followerCount || stats.followersCount || 0}</Text>
+              <Text style={styles.statLabel}> 关注者</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
-        {/* 我的内容 */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>我的内容</Text>
-          <View style={styles.menuGroup}>
-            {renderMenuItem('document-text-outline', '我的发布', () =>
-              router.push('/profile/my-posts')
-            )}
-            {renderMenuItem('bookmark-outline', '我的收藏', () =>
-              router.push('/profile/my-favorites')
-            )}
-            {renderMenuItem('map-outline', '我的行程', () =>
-              router.push('/profile/my-plans')
-            )}
-          </View>
+        {/* Tab 导航 */}
+        <View style={styles.tabBar}>
+          {renderTab('posts', '帖子')}
+          {renderTab('plans', '行程')}
+          {renderTab('favorites', '收藏')}
+          {renderTab('replies', '回复')}
         </View>
 
-        {/* 社交关系 */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>社交关系</Text>
-          <View style={styles.menuGroup}>
-            {renderMenuItem('people-outline', '我的关注', () =>
-              router.push('/profile/following')
-            )}
-            {renderMenuItem('heart-outline', '关注我的', () =>
-              router.push('/profile/followers')
-            )}
-          </View>
-        </View>
-
-        {/* 其他功能 */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>其他</Text>
-          <View style={styles.menuGroup}>
-            {renderMenuItem('notifications-outline', '通知中心', () =>
-              router.push('/profile/notifications')
-            , true)}
-            {renderMenuItem('settings-outline', '设置', () =>
-              router.push('/profile/settings')
-            )}
-          </View>
-        </View>
-
-        {/* 底部空白 */}
-        <View style={{ height: 40 }} />
+        {/* Tab 内容 */}
+        {renderTabContent()}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  // ========== 容器 ==========
   container: {
     flex: 1,
-    backgroundColor: COLORS.gray[50],
+    backgroundColor: TWITTER_COLORS.mainBg,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: COLORS.gray[50],
-  },
-
-  // 顶部导航栏
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: COLORS.white,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.gray[100],
-  },
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: COLORS.gray[900],
-  },
-
-  // 滚动区域
   scroll: {
     flex: 1,
   },
 
-  // 用户信息卡片
-  profileCard: {
-    backgroundColor: COLORS.white,
-    marginTop: 16,
-    marginHorizontal: 16,
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+  // ========== Banner 背景 ==========
+  banner: {
+    height: 150,
+    backgroundColor: COLORS.primary[500],
+    position: 'relative',
+  },
+  settingsButton: {
+    position: 'absolute',
+    top: 12,
+    right: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 
-  // 用户头部
-  userHeader: {
+  // ========== 用户信息区域 ==========
+  profileSection: {
+    backgroundColor: TWITTER_COLORS.mainBg,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+  },
+  avatarRow: {
     flexDirection: 'row',
-    marginBottom: 20,
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    marginTop: -40,
+    marginBottom: 12,
   },
   avatar: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: COLORS.gray[100],
-    marginRight: 16,
+    backgroundColor: TWITTER_COLORS.secondaryBg,
+    borderWidth: 4,
+    borderColor: TWITTER_COLORS.mainBg,
   },
   avatarEmpty: {
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: COLORS.gray[200],
-    borderStyle: 'dashed',
   },
+  editButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: TWITTER_COLORS.border,
+  },
+  editButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: TWITTER_COLORS.mainText,
+  },
+
+  // ========== 用户信息 ==========
   userInfo: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   nickname: {
     fontSize: 20,
     fontWeight: '700',
-    color: COLORS.gray[900],
-    marginRight: 8,
+    color: TWITTER_COLORS.mainText,
+    marginBottom: 2,
   },
-  levelBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.primary[50],
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 12,
-    gap: 3,
+  username: {
+    fontSize: 15,
+    color: TWITTER_COLORS.secondaryText,
+    marginBottom: 12,
   },
-  levelText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: COLORS.primary[600],
-  },
-  signature: {
-    fontSize: 14,
-    color: COLORS.gray[600],
+  bio: {
+    fontSize: 15,
+    color: TWITTER_COLORS.mainText,
     lineHeight: 20,
     marginBottom: 12,
   },
-  signaturePlaceholder: {
-    fontSize: 14,
-    color: COLORS.gray[400],
-    fontStyle: 'italic',
-    marginBottom: 12,
-  },
 
-  // 编辑按钮
-  editBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: COLORS.primary[50],
-    borderRadius: 16,
-    gap: 4,
-  },
-  editBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: COLORS.primary[600],
-  },
-
-  // 统计数据
+  // ========== 统计数据 ==========
   statsRow: {
     flexDirection: 'row',
-    paddingTop: 20,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.gray[100],
+    flexWrap: 'wrap',
+    gap: 16,
   },
   statItem: {
-    flex: 1,
-    alignItems: 'center',
+    flexDirection: 'row',
+    alignItems: 'baseline',
   },
-  statValue: {
-    fontSize: 22,
+  statNumber: {
+    fontSize: 15,
     fontWeight: '700',
-    color: COLORS.gray[900],
-    marginBottom: 4,
+    color: TWITTER_COLORS.mainText,
   },
   statLabel: {
-    fontSize: 13,
-    color: COLORS.gray[500],
-  },
-  statDivider: {
-    width: 1,
-    height: 40,
-    backgroundColor: COLORS.gray[100],
+    fontSize: 15,
+    color: TWITTER_COLORS.secondaryText,
   },
 
-  // 功能分区
-  section: {
-    marginTop: 16,
-    marginHorizontal: 16,
-  },
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: COLORS.gray[500],
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 8,
-    paddingHorizontal: 4,
-  },
-  menuGroup: {
-    backgroundColor: COLORS.white,
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
-
-  // 菜单项
-  menuItem: {
+  // ========== Tab 导航 ==========
+  tabBar: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    backgroundColor: TWITTER_COLORS.mainBg,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.gray[50],
+    borderBottomColor: TWITTER_COLORS.border,
   },
-  menuLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  tabButton: {
     flex: 1,
+    alignItems: 'center',
+    paddingVertical: 16,
+    position: 'relative',
   },
-  menuIcon: {
+  tabText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: TWITTER_COLORS.secondaryText,
+  },
+  tabTextActive: {
+    color: TWITTER_COLORS.mainText,
+    fontWeight: '700',
+  },
+  tabIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    width: '100%',
+    height: 3,
+    backgroundColor: COLORS.primary[500],
+    borderRadius: 2,
+  },
+
+  // ========== Tab 内容 ==========
+  tabContentList: {
+    backgroundColor: TWITTER_COLORS.mainBg,
+  },
+  tabContentLoading: {
+    height: 300,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: TWITTER_COLORS.mainBg,
+  },
+
+  // ========== 帖子列表项 ==========
+  postItem: {
+    backgroundColor: TWITTER_COLORS.mainBg,
+    borderBottomWidth: 1,
+    borderBottomColor: TWITTER_COLORS.border,
+  },
+  postContainer: {
+    flexDirection: 'row',
+    padding: 16,
+    gap: 12,
+  },
+  postAvatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: COLORS.primary[50],
+    backgroundColor: TWITTER_COLORS.secondaryBg,
+  },
+  postAvatarEmpty: {
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
   },
-  menuLabel: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: COLORS.gray[900],
+  postContent: {
+    flex: 1,
   },
-  menuRight: {
+  postHeader: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginBottom: 4,
+  },
+  postUserName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: TWITTER_COLORS.mainText,
+  },
+  postUserHandle: {
+    fontSize: 15,
+    color: TWITTER_COLORS.secondaryText,
+  },
+  postTime: {
+    fontSize: 15,
+    color: TWITTER_COLORS.secondaryText,
+  },
+  postTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: TWITTER_COLORS.mainText,
+    lineHeight: 20,
+    marginBottom: 4,
+  },
+  postText: {
+    fontSize: 15,
+    color: TWITTER_COLORS.mainText,
+    lineHeight: 20,
+    marginBottom: 12,
+  },
+  postImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 12,
+    backgroundColor: TWITTER_COLORS.border,
+    marginBottom: 12,
+  },
+  postActions: {
+    flexDirection: 'row',
+    gap: 48,
+    marginTop: 8,
+  },
+  actionItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
+  },
+  actionText: {
+    fontSize: 13,
+    color: TWITTER_COLORS.secondaryText,
   },
 
-  // 徽章
-  badge: {
-    backgroundColor: COLORS.error[500],
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
+  // ========== 空状态 ==========
+  emptyState: {
+    height: 400,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: TWITTER_COLORS.mainBg,
+    paddingHorizontal: 40,
   },
-  badgeText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: COLORS.white,
+  emptyText: {
+    fontSize: 16,
+    color: TWITTER_COLORS.secondaryText,
+    marginTop: 16,
+    textAlign: 'center',
   },
 });
 

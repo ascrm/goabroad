@@ -11,9 +11,10 @@ import React, { createContext, useContext, useState } from 'react';
 import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { DrawerGestureWrapper, DrawerMenu, TopNavigationBar } from '@/src/components/layout';
+import { CreatePostModal, DrawerGestureWrapper, DrawerMenu, TopNavigationBar } from '@/src/components/layout';
 import { COLORS } from '@/src/constants';
-import { useAppSelector, useUserInfo } from '@/src/store/hooks';
+import { useAppDispatch, useAppSelector, useUserInfo } from '@/src/store/hooks';
+import { closeCreatePostModal, openCreatePostModal } from '@/src/store/slices/uiSlice';
 
 // 创建抽屉上下文，用于在所有 tabs 中共享抽屉状态
 const DrawerContext = createContext({
@@ -26,11 +27,13 @@ export const useDrawer = () => useContext(DrawerContext);
 export default function TabsLayout() {
   const router = useRouter();
   const pathname = usePathname();
+  const dispatch = useAppDispatch();
   const userInfo = useUserInfo(); // 使用统一的 userInfo hook（优先使用 profile.userInfo）
   
   // 从 Redux 获取角标数据
   const todoCount = useAppSelector((state) => state.planning.todoCount);
   const unreadCount = useAppSelector((state) => state.ui.unreadCount);
+  const createPostModalVisible = useAppSelector((state) => state.ui.createPostModalVisible);
   
   // 抽屉状态
   const [drawerVisible, setDrawerVisible] = useState(false);
@@ -44,17 +47,20 @@ export default function TabsLayout() {
   // 抽屉控制函数
   const openDrawer = () => setDrawerVisible(true);
   const closeDrawer = () => setDrawerVisible(false);
-
-  // 处理通知
-  const handleNotification = () => {
-    console.log('打开通知');
-    // router.push('/profile/notifications');
+  
+  // 发布选择器控制函数
+  const handleOpenCreatePost = () => {
+    dispatch(openCreatePostModal());
+  };
+  
+  const handleCloseCreatePost = () => {
+    dispatch(closeCreatePostModal());
   };
 
   // 根据当前路由返回导航栏配置
   const getNavBarConfig = () => {
-    // create-plan 页面不显示导航栏（因为会立即跳转）
-    if (pathname === '/create-plan') {
+    // create-post 页面不显示导航栏（因为会立即跳转）
+    if (pathname === '/create-post') {
       return { show: false };
     }
 
@@ -69,24 +75,8 @@ export default function TabsLayout() {
     switch (pathname) {
       case '/':
       case '/index':
-        // 首页：右侧显示通知按钮
-        config.rightContent = (
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={handleNotification}
-            accessibilityLabel="通知"
-            accessibilityHint="查看通知消息"
-          >
-            <Ionicons 
-              name="notifications-outline" 
-              size={24} 
-              color={COLORS.gray[700]} 
-            />
-            <View style={styles.badge}>
-              <View style={styles.badgeDot} />
-            </View>
-          </TouchableOpacity>
-        );
+        // 首页：中间显示Logo或标题，右侧不显示通知按钮（已改为消息Tab）
+        config.centerContent = null; // 或者可以添加Logo
         break;
 
       case '/community':
@@ -109,7 +99,7 @@ export default function TabsLayout() {
         break;
 
       case '/countries':
-        // 国家页：可以添加特定配置
+        // 国家页：保持现有配置
         config.centerContent = (
           <View style={styles.centerContent}>
             <Text style={styles.pageTitle}>国家</Text>
@@ -120,27 +110,28 @@ export default function TabsLayout() {
             style={styles.iconButton}
             onPress={() => router.push('/search')}
             accessibilityLabel="搜索"
-            accessibilityHint="搜索社区内容"
+            accessibilityHint="搜索国家信息"
           >
             <Ionicons name="search" size={24} color={COLORS.gray[700]} />
           </TouchableOpacity>
         );
         break;
 
-      case '/my-plans':
-        // 规划页：可以添加特定配置
+      case '/messages':
+        // 消息页：中间显示标题，右侧显示设置/筛选按钮
         config.centerContent = (
           <View style={styles.centerContent}>
-            <Text style={styles.pageTitle}>规划</Text>
+            <Text style={styles.pageTitle}>消息</Text>
           </View>
         );
         config.rightContent = (
           <TouchableOpacity
             style={styles.iconButton}
-            onPress={() => router.push('/planning/create')}
-            accessibilityLabel="创建新规划"
+            onPress={() => console.log('打开消息设置')}
+            accessibilityLabel="设置"
+            accessibilityHint="消息设置和筛选"
           >
-            <Ionicons name="add-circle-outline" size={24} color={COLORS.gray[700]} />
+            <Ionicons name="options-outline" size={24} color={COLORS.gray[700]} />
           </TouchableOpacity>
         );
         break;
@@ -220,28 +211,27 @@ export default function TabsLayout() {
         }}
       />
 
-      {/* Tab 2 - 规划 */}
+      {/* Tab 2 - 社区（从第4个移到第2个）*/}
       <Tabs.Screen
-        name="my-plans"
+        name="community"
         options={{
-          title: '规划',
-          tabBarBadge: formatBadge(todoCount),
+          title: '社区',
           tabBarIcon: ({ focused, color }) => (
             <Ionicons
-              name={focused ? 'list' : 'list-outline'}
+              name={focused ? 'people' : 'people-outline'}
               size={28}
               color={color}
             />
           ),
-          tabBarAccessibilityLabel: '规划',
+          tabBarAccessibilityLabel: '社区',
         }}
       />
 
-      {/* Tab 3 - 创建规划（中间凸起按钮）*/}
+      {/* Tab 3 - 发布（中间凸起按钮）*/}
       <Tabs.Screen
-        name="create-plan"
+        name="create-post"
         options={{
-          title: '创建规划',
+          title: '发布',
           tabBarIcon: ({ focused }) => (
             <View style={styles.centerButtonContainer}>
               <View style={[
@@ -256,28 +246,23 @@ export default function TabsLayout() {
               </View>
             </View>
           ),
-          tabBarAccessibilityLabel: '创建新规划',
-        }}
-      />
-
-      {/* Tab 4 - 社区 */}
-      <Tabs.Screen
-        name="community"
-        options={{
-          title: '社区',
-          tabBarBadge: formatBadge(unreadCount),
-          tabBarIcon: ({ focused, color }) => (
-            <Ionicons
-              name={focused ? 'people' : 'people-outline'}
-              size={28}
-              color={color}
+          tabBarAccessibilityLabel: '发布内容',
+          // 自定义 Tab 按钮，拦截导航行为
+          tabBarButton: (props) => (
+            <TouchableOpacity
+              {...props}
+              onPress={(e) => {
+                // 阻止默认导航行为
+                e.preventDefault();
+                // 触发 Modal 显示
+                handleOpenCreatePost();
+              }}
             />
           ),
-          tabBarAccessibilityLabel: '社区',
         }}
       />
 
-      {/* Tab 5 - 国家 */}
+      {/* Tab 4 - 国家（从第5个移到第4个）*/}
       <Tabs.Screen
         name="countries"
         options={{
@@ -292,12 +277,35 @@ export default function TabsLayout() {
           tabBarAccessibilityLabel: '国家',
         }}
       />
+
+      {/* Tab 5 - 消息（新增）*/}
+      <Tabs.Screen
+        name="messages"
+        options={{
+          title: '消息',
+          tabBarBadge: formatBadge(unreadCount),
+          tabBarIcon: ({ focused, color }) => (
+            <Ionicons
+              name={focused ? 'chatbubbles' : 'chatbubbles-outline'}
+              size={28}
+              color={color}
+            />
+          ),
+          tabBarAccessibilityLabel: '消息',
+        }}
+      />
             </Tabs>
           </View>
         </DrawerGestureWrapper>
         
         {/* 全局抽屉菜单 */}
         <DrawerMenu visible={drawerVisible} onClose={closeDrawer} />
+        
+        {/* 全局发布选择器 Modal */}
+        <CreatePostModal 
+          visible={createPostModalVisible}
+          onClose={handleCloseCreatePost}
+        />
       </SafeAreaView>
     </DrawerContext.Provider>
   );

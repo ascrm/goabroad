@@ -42,6 +42,7 @@ export default function UserProfile({ user, isOwnProfile = false }) {
 
   // 格式化数字
   const formatCount = (count) => {
+    if (!count && count !== 0) return '0';
     if (count >= 10000) return `${(count / 10000).toFixed(1)}万`;
     if (count >= 1000) return `${(count / 1000).toFixed(1)}k`;
     return count.toString();
@@ -90,14 +91,14 @@ export default function UserProfile({ user, isOwnProfile = false }) {
         {/* 统计数据 */}
         <View style={styles.stats}>
           <TouchableOpacity style={styles.statItem}>
-            <Text style={styles.statValue}>{formatCount(user.postsCount || 0)}</Text>
+            <Text style={styles.statValue}>{formatCount(user.postCount || user.postsCount || 0)}</Text>
             <Text style={styles.statLabel}>帖子</Text>
           </TouchableOpacity>
           
           <View style={styles.statDivider} />
           
           <TouchableOpacity style={styles.statItem}>
-            <Text style={styles.statValue}>{formatCount(user.followersCount || 0)}</Text>
+            <Text style={styles.statValue}>{formatCount(user.followerCount || user.followersCount || 0)}</Text>
             <Text style={styles.statLabel}>粉丝</Text>
           </TouchableOpacity>
           
@@ -205,16 +206,19 @@ export default function UserProfile({ user, isOwnProfile = false }) {
 
 UserProfile.propTypes = {
   user: PropTypes.shape({
-    id: PropTypes.string.isRequired,
+    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,  // 支持数字ID
     name: PropTypes.string.isRequired,
-    avatar: PropTypes.string.isRequired,
+    avatarUrl: PropTypes.string,  // 改为 avatarUrl（与API一致）
+    avatar: PropTypes.string,     // 保留兼容
     coverImage: PropTypes.string,
     bio: PropTypes.string,
     tags: PropTypes.arrayOf(PropTypes.string),
     isVerified: PropTypes.bool,
     isFollowing: PropTypes.bool,
-    postsCount: PropTypes.number,
-    followersCount: PropTypes.number,
+    postCount: PropTypes.number,       // 改为 postCount（与API一致）
+    postsCount: PropTypes.number,      // 保留兼容
+    followerCount: PropTypes.number,   // 改为 followerCount（与API一致）
+    followersCount: PropTypes.number,  // 保留兼容
     followingCount: PropTypes.number,
     likesCount: PropTypes.number,
   }).isRequired,

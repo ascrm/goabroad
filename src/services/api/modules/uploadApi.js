@@ -1,6 +1,14 @@
 /**
  * GoAbroad 文件上传 API
  * 处理头像、图片、文件等上传
+ * 
+ * 注意：根据 2024-10-29 API文档更新
+ * - ID改为数字类型
+ * - url改为filePath（存储相对路径）
+ * - filename改为fileName
+ * - originalName改为originalFileName
+ * - size改为fileSize
+ * - 添加fileType枚举字段
  */
 
 import apiClient from '../client';
@@ -15,6 +23,7 @@ export const FileType = {
   ATTACHMENT: 'attachment',   // 通用附件
 };
 
+// ==================== 8.1 通用文件上传 ====================
 /**
  * 上传单个文件
  * @param {File|Object} file - 文件对象 (浏览器) 或文件信息 (React Native)
@@ -69,19 +78,20 @@ export const uploadFile = async (file, type = FileType.ATTACHMENT, onProgress) =
     });
     
     console.log('✅ [文件上传] 上传成功:', response.data);
-    return response.data;
+    return response;
   } catch (error) {
     console.error('❌ [文件上传] 上传失败:', error);
     throw error;
   }
 };
 
+// ==================== 8.2 批量上传 ====================
 /**
  * 上传多个文件
  * @param {Array<File|Object>} files - 文件数组
  * @param {string} type - 文件类型
  * @param {Function} onProgress - 总体进度回调 (percent) => void
- * @returns {Promise<Array<Object>>} 上传结果数组
+ * @returns {Promise<Object>} 上传结果
  */
 export const uploadMultipleFiles = async (files, type = FileType.ATTACHMENT, onProgress) => {
   try {
@@ -102,16 +112,51 @@ export const uploadMultipleFiles = async (files, type = FileType.ATTACHMENT, onP
         }
       });
       
-      results.push(result);
+      results.push(result.data);
       completedCount++;
     }
     
     console.log(`✅ [批量上传] 全部上传成功: ${results.length} 个文件`);
-    return results;
+    
+    // 返回与API文档一致的格式
+    return {
+      data: {
+        total: files.length,
+        success: results.length,
+        failed: 0,
+        files: results,
+        uploadedAt: new Date().toISOString().slice(0, -1), // 去掉Z后缀
+      },
+    };
   } catch (error) {
     console.error('❌ [批量上传] 上传失败:', error);
     throw error;
   }
+};
+
+// ==================== 8.3 获取上传凭证 ====================
+/**
+ * 获取第三方云存储上传凭证（用于客户端直传）
+ * @param {string} type - 文件类型 (avatar, post_image, material, attachment)
+ * @param {string} provider - 云存储提供商 (qiniu, aliyun)
+ * @returns {Promise<Object>} 上传凭证
+ */
+export const getUploadToken = async (type = FileType.ATTACHMENT, provider = 'qiniu') => {
+  const response = await apiClient.get('/upload/token', {
+    params: { type, provider },
+  });
+  return response;
+};
+
+// ==================== 8.4 删除文件 ====================
+/**
+ * 删除已上传的文件
+ * @param {number} fileId - 文件 ID（数字类型）
+ * @returns {Promise<Object>} 删除结果
+ */
+export const deleteFile = async (fileId) => {
+  const response = await apiClient.delete(`/upload/${fileId}`);
+  return response;
 };
 
 /**
@@ -138,7 +183,7 @@ export const uploadPostImage = async (file, onProgress) => {
  * 上传多张帖子图片
  * @param {Array<File|Object>} files - 图片文件数组
  * @param {Function} onProgress - 总体进度回调
- * @returns {Promise<Array<Object>>} 上传结果数组
+ * @returns {Promise<Object>} 上传结果
  */
 export const uploadPostImages = async (files, onProgress) => {
   return uploadMultipleFiles(files, FileType.POST_IMAGE, onProgress);
@@ -216,6 +261,8 @@ export const FILE_SIZE_LIMITS = {
 export default {
   uploadFile,
   uploadMultipleFiles,
+  getUploadToken,
+  deleteFile,
   uploadAvatar,
   uploadPostImage,
   uploadPostImages,
@@ -229,4 +276,3 @@ export default {
   ALLOWED_DOCUMENT_TYPES,
   FILE_SIZE_LIMITS,
 };
-

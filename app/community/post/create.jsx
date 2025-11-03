@@ -9,17 +9,18 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    Image,
+    KeyboardAvoidingView,
+    Platform,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 import CategoryPicker from '@/src/components/community/create/CategoryPicker';
@@ -47,10 +48,10 @@ export default function CreatePost() {
   const [tags, setTags] = useState([]); // 可选
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [showTagInput, setShowTagInput] = useState(false);
+  const [showImagePicker, setShowImagePicker] = useState(false);
+  const [showVideoPicker, setShowVideoPicker] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [isUploading, setIsUploading] = useState(false);
 
   // 从草稿恢复
   useEffect(() => {
@@ -135,11 +136,6 @@ export default function CreatePost() {
       return false;
     }
 
-    if (content.trim().length < 10) {
-      Alert.alert('提示', '内容至少需要10个字符');
-      return false;
-    }
-
     return true;
   };
 
@@ -148,9 +144,6 @@ export default function CreatePost() {
     if (images.length === 0) return [];
 
     try {
-      setIsUploading(true);
-      setUploadProgress(0);
-
       console.log(`📤 [上传图片] 开始上传 ${images.length} 张图片`);
 
       // 过滤出需要上传的本地图片（没有 url 字段的）
@@ -161,24 +154,22 @@ export default function CreatePost() {
         return images.map((img) => img.url);
       }
 
-      // 上传本地图片
-      const uploadResults = await uploadPostImages(localImages, (progress) => {
-        setUploadProgress(progress);
-      });
+      // 上传本地图片（移除进度回调）
+      const uploadResults = await uploadPostImages(localImages);
 
       console.log('✅ [上传图片] 上传成功:', uploadResults);
 
+      // 处理上传结果：API返回的是 { data: { files: [...] } }
+      const uploadedFiles = uploadResults?.data?.files || uploadResults?.files || [];
+      
       // 合并已上传的图片 URL 和新上传的图片 URL
-      const uploadedUrls = uploadResults.map((result) => result.url);
+      const uploadedUrls = uploadedFiles.map((result) => result.url);
       const existingUrls = images.filter((img) => img.url).map((img) => img.url);
 
       return [...existingUrls, ...uploadedUrls];
     } catch (error) {
       console.error('❌ [上传图片] 上传失败:', error);
       throw new Error('图片上传失败，请重试');
-    } finally {
-      setIsUploading(false);
-      setUploadProgress(0);
     }
   };
 
@@ -199,15 +190,20 @@ export default function CreatePost() {
       // 2. 发布帖子
       console.log('📤 [发布流程] 步骤 2/2: 发布帖子');
 
+      // 合并图片和视频到 mediaUrls
+      const mediaUrls = [
+        ...imageUrls,
+        ...(video ? [video.url || video.uri || video] : [])
+      ];
+
       const postData = {
-        contentType: 'POST', // API 使用 contentType
+        contentType: 'TREND', // 新API：TREND(日常动态), QUESTION(提问题), ANSWER(写答案), GUIDE(写攻略)
         content: content.trim(),
         status: 'PUBLISHED',
-        images: imageUrls,
-        videos: video ? [video.url || video.uri || video] : [],
-        tags: tags,
-        country: null, // 可选：根据需求添加
-        stage: category || '综合讨论',
+        mediaUrls: mediaUrls, // 新API：使用 mediaUrls 替代 images 和 videos
+        category: category || tags[0], // 新API：使用 category 替代 tags，取第一个tag作为分类
+        coverImage: imageUrls.length > 0 ? imageUrls[0] : null, // 使用第一张图片作为封面
+        allowComment: true, // 新API：是否允许评论
       };
 
       console.log('📤 [发布帖子] 准备发布:', postData);
@@ -256,8 +252,6 @@ export default function CreatePost() {
       ]);
     } finally {
       setIsPublishing(false);
-      setIsUploading(false);
-      setUploadProgress(0);
     }
   };
 
@@ -279,12 +273,22 @@ export default function CreatePost() {
 
   // 智能发布按钮
   const canPublish = () => {
-    return !isPublishing && content.trim().length >= 10;
+    return !isPublishing && content.trim().length > 0;
   };
 
   // 移除标签
   const removeTag = (tag) => {
     setTags(tags.filter((t) => t !== tag));
+  };
+
+  // 移除图片
+  const removeImage = (index) => {
+    setImages(images.filter((_, i) => i !== index));
+  };
+
+  // 移除视频
+  const removeVideo = () => {
+    setVideo(null);
   };
 
   return (
@@ -297,7 +301,7 @@ export default function CreatePost() {
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={handleCancel} hitSlop={12}>
-            <Ionicons name="close" size={24} color={COLORS.gray[700]} />
+            <Text style={styles.cancelText}>取消</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -313,32 +317,25 @@ export default function CreatePost() {
           </TouchableOpacity>
         </View>
 
-        {/* 上传进度提示 */}
-        {isUploading && (
-          <View style={styles.uploadingBanner}>
-            <ActivityIndicator size="small" color={COLORS.primary[600]} />
-            <Text style={styles.uploadingText}>
-              正在上传图片... {uploadProgress}%
-            </Text>
-          </View>
-        )}
-
         {/* 主输入区 */}
         <ScrollView
           style={styles.content}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={styles.inputContainer}>
-            {/* 用户头像 */}
+          {/* 用户信息和文本输入区 */}
+          <View style={styles.mainContent}>
+            {/* 左侧头像 */}
             <Avatar
-              size={40}
-              source={userInfo?.avatarUrl || userInfo?.avatar}
-              name={userInfo?.nickname || userInfo?.username}
+              size="md"
+              source={userInfo?.avatar}
+              name={userInfo?.nickname || userInfo?.username || '用户'}
+              style={styles.avatar}
             />
 
-            {/* 文本输入 */}
-            <View style={styles.inputWrapper}>
+            {/* 右侧内容区 */}
+            <View style={styles.rightContent}>
+              {/* 文本输入 */}
               <TextInput
                 ref={contentInputRef}
                 style={styles.contentInput}
@@ -347,41 +344,92 @@ export default function CreatePost() {
                 value={content}
                 onChangeText={setContent}
                 multiline
-                maxLength={3000}
                 autoFocus
                 textAlignVertical="top"
               />
-              {content.length > 0 && content.length < 10 && (
-                <Text style={styles.minLengthHint}>
-                  还需要 {10 - content.length} 个字符才能发布
-                </Text>
+
+              {/* 媒体预览区域 */}
+              {images.length > 0 && (
+                <View style={styles.mediaPreviewContainer}>
+                  {images.length === 1 ? (
+                    // 单张图片 - 固定尺寸，居中裁剪
+                    <View style={styles.singleImageContainer}>
+                      <Image 
+                        source={{ uri: images[0].uri }} 
+                        style={styles.singleImage}
+                        resizeMode="cover"
+                      />
+                      <TouchableOpacity
+                        style={styles.removeMediaBtn}
+                        onPress={() => removeImage(0)}
+                        hitSlop={8}
+                      >
+                        <Ionicons name="close-circle" size={24} color="rgba(0,0,0,0.6)" />
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    // 多张图片 - 横向滚动
+                    <ScrollView 
+                      horizontal 
+                      showsHorizontalScrollIndicator={false}
+                      style={styles.multiImageScroll}
+                    >
+                      {images.map((image, index) => (
+                        <View key={index} style={styles.multiImageItem}>
+                          <Image 
+                            source={{ uri: image.uri }} 
+                            style={styles.multiImage}
+                            resizeMode="cover"
+                          />
+                          <TouchableOpacity
+                            style={styles.removeMediaBtn}
+                            onPress={() => removeImage(index)}
+                            hitSlop={8}
+                          >
+                            <Ionicons name="close-circle" size={24} color="rgba(0,0,0,0.6)" />
+                          </TouchableOpacity>
+                        </View>
+                      ))}
+                    </ScrollView>
+                  )}
+                </View>
+              )}
+
+              {/* 视频预览 */}
+              {video && (
+                <View style={styles.mediaPreviewContainer}>
+                  <View style={styles.videoContainer}>
+                    <View style={styles.videoPreview}>
+                      <Ionicons name="play-circle" size={48} color={COLORS.white} />
+                      <Text style={styles.videoText}>视频</Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.removeMediaBtn}
+                      onPress={removeVideo}
+                      hitSlop={8}
+                    >
+                      <Ionicons name="close-circle" size={24} color="rgba(0,0,0,0.6)" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
               )}
             </View>
           </View>
 
-          {/* 媒体选择器 - 图片 */}
-          {!video && (
-            <MediaPicker
-              type="image"
-              images={images}
-              video={video}
-              onImagesChange={setImages}
-              onVideoChange={setVideo}
-            />
-          )}
+          {/* 底部功能按钮区（圈人、添加位置等） */}
+          <View style={styles.bottomActions}>
+            <TouchableOpacity style={styles.actionButton}>
+              <Ionicons name="person-add-outline" size={20} color="#00A6F0" />
+              <Text style={styles.actionText}>圈人</Text>
+            </TouchableOpacity>
 
-          {/* 媒体选择器 - 视频 */}
-          {!images.length && (
-            <MediaPicker
-              type="video"
-              images={images}
-              video={video}
-              onImagesChange={setImages}
-              onVideoChange={setVideo}
-            />
-          )}
+            <TouchableOpacity style={styles.actionButton}>
+              <Ionicons name="location-outline" size={20} color="#00A6F0" />
+              <Text style={styles.actionText}>添加位置</Text>
+            </TouchableOpacity>
+          </View>
 
-          {/* 已选信息标签（折叠显示） */}
+          {/* 已选信息标签 */}
           {(category || tags.length > 0) && (
             <View style={styles.selectedInfo}>
               {category && (
@@ -407,28 +455,98 @@ export default function CreatePost() {
             </View>
           )}
 
-          <View style={{ height: 100 }} />
+          <View style={{ height: 20 }} />
         </ScrollView>
+
+        {/* 评论权限设置 */}
+        <View style={styles.permissionBar}>
+          <Ionicons name="earth" size={18} color="#00A6F0" />
+          <Text style={styles.permissionText}>所有人可以回复</Text>
+        </View>
 
         {/* 底部工具栏 */}
         <View style={styles.toolbar}>
           <View style={styles.toolbarLeft}>
+            {/* 图片按钮 */}
+            <TouchableOpacity
+              onPress={() => setShowImagePicker(true)}
+              style={styles.toolBtn}
+              disabled={!!video}
+            >
+              <Ionicons
+                name="image-outline"
+                size={24}
+                color={video ? COLORS.gray[300] : '#00A6F0'}
+              />
+            </TouchableOpacity>
+
+            {/* 相机按钮 */}
+            <TouchableOpacity
+              onPress={() => setShowImagePicker(true)}
+              style={styles.toolBtn}
+              disabled={!!video}
+            >
+              <Ionicons
+                name="camera-outline"
+                size={24}
+                color={video ? COLORS.gray[300] : '#00A6F0'}
+              />
+            </TouchableOpacity>
+
+            {/* 视频按钮 */}
+            <TouchableOpacity
+              onPress={() => setShowVideoPicker(true)}
+              style={styles.toolBtn}
+              disabled={images.length > 0}
+            >
+              <Ionicons
+                name="videocam-outline"
+                size={24}
+                color={images.length > 0 ? COLORS.gray[300] : '#00A6F0'}
+              />
+            </TouchableOpacity>
+
+            {/* 直播按钮 */}
+            <TouchableOpacity
+              style={styles.toolBtn}
+            >
+              <Ionicons
+                name="tv-outline"
+                size={24}
+                color="#00A6F0"
+              />
+            </TouchableOpacity>
+
+            {/* GIF 按钮 */}
+            <TouchableOpacity
+              style={styles.toolBtn}
+            >
+              <Text style={styles.gifText}>GIF</Text>
+            </TouchableOpacity>
+
+            {/* 标签按钮 */}
             <TouchableOpacity
               onPress={() => setShowTagInput(!showTagInput)}
               style={styles.toolBtn}
             >
               <Ionicons
                 name="pricetag-outline"
-                size={22}
-                color={COLORS.primary[600]}
+                size={24}
+                color="#00A6F0"
               />
             </TouchableOpacity>
 
+            {/* 分区按钮 */}
             <TouchableOpacity
               onPress={() => setShowCategoryPicker(true)}
               style={styles.toolBtn}
             >
-              <Ionicons name="grid-outline" size={22} color={COLORS.primary[600]} />
+              <Ionicons name="grid-outline" size={24} color="#00A6F0" />
+            </TouchableOpacity>
+
+            {/* 更多选项 */}
+            <TouchableOpacity style={styles.toolBtn}>
+              <Ionicons name="add-circle-outline" size={24} color="#00A6F0" />
             </TouchableOpacity>
           </View>
 
@@ -436,17 +554,10 @@ export default function CreatePost() {
             {isSavingDraft && (
               <Text style={styles.savingText}>保存中...</Text>
             )}
-            <View style={styles.charCount}>
-              <Text
-                style={[
-                  styles.charCountText,
-                  content.length > 2700 && styles.charCountWarning,
-                  content.length >= 3000 && styles.charCountDanger,
-                ]}
-              >
-                {content.length}/3000
-              </Text>
-            </View>
+            {/* 循环图标 */}
+            <TouchableOpacity style={styles.toolBtn}>
+              <Ionicons name="sync-outline" size={22} color="#00A6F0" />
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -461,6 +572,32 @@ export default function CreatePost() {
             </View>
             <TagInput tags={tags} onTagsChange={setTags} maxTags={5} />
           </View>
+        )}
+
+        {/* 图片选择器 Modal */}
+        {showImagePicker && (
+          <MediaPicker
+            type="image"
+            images={images}
+            video={video}
+            onImagesChange={setImages}
+            onVideoChange={setVideo}
+            visible={showImagePicker}
+            onClose={() => setShowImagePicker(false)}
+          />
+        )}
+
+        {/* 视频选择器 Modal */}
+        {showVideoPicker && (
+          <MediaPicker
+            type="video"
+            images={images}
+            video={video}
+            onImagesChange={setImages}
+            onVideoChange={setVideo}
+            visible={showVideoPicker}
+            onClose={() => setShowVideoPicker(false)}
+          />
         )}
 
         {/* 分区选择器 Modal */}
@@ -494,49 +631,137 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderBottomWidth: 1,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: COLORS.gray[200],
   },
+  cancelText: {
+    fontSize: 16,
+    color: COLORS.gray[900],
+  },
   publishBtn: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    backgroundColor: COLORS.primary[600],
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    backgroundColor: '#00A6F0',
     borderRadius: 20,
-    minWidth: 60,
+    minWidth: 70,
     alignItems: 'center',
   },
   publishBtnDisabled: {
     backgroundColor: COLORS.gray[300],
-    opacity: 0.6,
+    opacity: 0.5,
   },
   publishText: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '600',
     color: COLORS.white,
   },
   content: {
     flex: 1,
   },
-  inputContainer: {
+  
+  // 主内容区（头像 + 输入）
+  mainContent: {
     flexDirection: 'row',
-    padding: 16,
-    alignItems: 'flex-start',
+    paddingTop: 16,
+    paddingHorizontal: 16,
   },
-  inputWrapper: {
+  avatar: {
+    marginRight: 12,
+  },
+  rightContent: {
     flex: 1,
-    marginLeft: 12,
   },
   contentInput: {
-    fontSize: 16,
+    fontSize: 18,
     color: COLORS.gray[900],
     lineHeight: 22,
-    minHeight: 100,
   },
-  minLengthHint: {
-    fontSize: 12,
-    color: COLORS.warning[600],
-    marginTop: 4,
-    fontStyle: 'italic',
+
+  // 媒体预览容器
+  mediaPreviewContainer: {
+  },
+  
+  // 单张图片
+  singleImageContainer: {
+    position: 'relative',
+    width: '100%',
+    height: 400,             // 固定高度
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: COLORS.gray[100],
+  },
+  singleImage: {
+    width: '100%',
+    height: '100%',
+  },
+  
+  // 多张图片横向滚动
+  multiImageScroll: {
+    marginVertical: 8,
+  },
+  multiImageItem: {
+    position: 'relative',
+    marginRight: 12,
+    width: 200,              // 固定宽度
+    height: 280,             // 固定高度（5:7 竖图比例）
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: COLORS.gray[100],
+  },
+  multiImage: {
+    width: '100%',
+    height: '100%',
+  },
+  
+  // 视频预览
+  videoContainer: {
+    position: 'relative',
+    width: '100%',
+    aspectRatio: 16/9,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  videoPreview: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: COLORS.gray[800],
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  videoText: {
+    fontSize: 13,
+    color: COLORS.white,
+    marginTop: 8,
+  },
+  
+  // 删除按钮
+  removeMediaBtn: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  // 底部操作按钮
+  bottomActions: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 20,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  actionText: {
+    fontSize: 15,
+    color: '#00A6F0',
   },
 
   // 已选信息
@@ -544,7 +769,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingVertical: 8,
     gap: 8,
   },
   chip: {
@@ -562,48 +787,54 @@ const styles = StyleSheet.create({
     color: COLORS.primary[600],
   },
 
+  // 权限设置栏
+  permissionBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: COLORS.gray[200],
+    gap: 8,
+  },
+  permissionText: {
+    fontSize: 15,
+    color: '#00A6F0',
+  },
+
   // 底部工具栏
   toolbar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: COLORS.gray[200],
     backgroundColor: COLORS.white,
   },
   toolbarLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 20,
+    gap: 4,
   },
   toolBtn: {
-    padding: 4,
+    padding: 8,
+  },
+  gifText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#00A6F0',
   },
   toolbarRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
   },
   savingText: {
     fontSize: 11,
     color: COLORS.gray[500],
-  },
-  charCount: {
-    paddingHorizontal: 8,
-  },
-  charCountText: {
-    fontSize: 13,
-    color: COLORS.gray[500],
-    fontVariant: ['tabular-nums'],
-  },
-  charCountWarning: {
-    color: COLORS.warning[600],
-  },
-  charCountDanger: {
-    color: COLORS.error[600],
-    fontWeight: '600',
+    marginRight: 8,
   },
 
   // 标签输入
@@ -625,21 +856,5 @@ const styles = StyleSheet.create({
     color: COLORS.gray[900],
   },
 
-  // 上传进度
-  uploadingBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: COLORS.primary[50],
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.primary[200],
-    gap: 8,
-  },
-  uploadingText: {
-    fontSize: 14,
-    color: COLORS.primary[700],
-    fontWeight: '500',
-  },
 });
+

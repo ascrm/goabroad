@@ -304,7 +304,7 @@ export default function DrawerMenu({ visible, onClose }) {
             <MenuItem
               icon="person-outline"
               label="个人资料"
-              onPress={() => handleNavigate('/profile/edit')}
+              onPress={() => handleNavigate('/profile')}
             />
             <MenuItem
               icon="list-outline"

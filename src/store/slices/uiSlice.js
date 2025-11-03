@@ -47,6 +47,9 @@ const initialState = {
   
   // Tab 角标数据
   unreadCount: 0, // 未读消息数量（社区 Tab）
+  
+  // 发布选择器 Modal 状态
+  createPostModalVisible: false,
 };
 
 // 创建 slice
@@ -135,6 +138,16 @@ const uiSlice = createSlice({
       state.unreadCount = action.payload;
     },
     
+    // 打开发布选择器 Modal
+    openCreatePostModal: (state) => {
+      state.createPostModalVisible = true;
+    },
+    
+    // 关闭发布选择器 Modal
+    closeCreatePostModal: (state) => {
+      state.createPostModalVisible = false;
+    },
+    
     // 重置 UI 状态
     resetUI: (state) => {
       return initialState;
@@ -155,6 +168,8 @@ export const {
   setTheme,
   setLanguage,
   setUnreadCount,
+  openCreatePostModal,
+  closeCreatePostModal,
   resetUI,
 } = uiSlice.actions;
 

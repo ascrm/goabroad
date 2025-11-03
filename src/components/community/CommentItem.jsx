@@ -24,6 +24,7 @@ import { zhCN } from 'date-fns/locale';
  * 格式化数字显示
  */
 const formatCount = (count) => {
+  if (!count && count !== 0) return '0';
   if (count >= 10000) {
     return `${(count / 10000).toFixed(1)}w`;
   }
@@ -162,11 +163,12 @@ export default function CommentItem({ comment, onReply, isAuthorComment = false 
 
 CommentItem.propTypes = {
   comment: PropTypes.shape({
-    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,  // 支持数字ID
     user: PropTypes.shape({
-      id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+      id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,  // 支持数字ID
       name: PropTypes.string.isRequired,
-      avatar: PropTypes.string,
+      avatarUrl: PropTypes.string,  // 改为 avatarUrl（与API一致）
+      avatar: PropTypes.string,     // 保留兼容
     }).isRequired,
     content: PropTypes.string.isRequired,
     likeCount: PropTypes.number,

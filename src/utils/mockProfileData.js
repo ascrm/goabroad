@@ -4,7 +4,7 @@
  */
 
 export const MOCK_USER_INFO = {
-  id: 'user_001',
+  id: 1,  // 改为数字类型（与API文档一致）
   avatarUrl: null, // 改为 avatarUrl 与 API 保持一致
   nickname: '留学追梦人',
   username: 'dreamer2024',
@@ -39,9 +39,11 @@ export const MOCK_MEMBERSHIP = {
 
 export const MOCK_STATS = {
   planProgress: 45,
-  postsCount: 12,
+  postCount: 12,        // 改为 postCount（与API文档一致）
   favoritesCount: 38,
   likesCount: 156,
+  followerCount: 120,   // 新增（与API文档一致）
+  followingCount: 85,   // 新增（与API文档一致）
 };
 
 export const MOCK_SETTINGS = {

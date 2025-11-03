@@ -9,15 +9,13 @@ import React, { useState } from 'react';
 import {
     Alert,
     Dimensions,
-    Image,
     Modal,
-    ScrollView,
+    Platform,
     StyleSheet,
     Text,
     TouchableOpacity,
     View
 } from 'react-native';
-import * as Progress from 'react-native-progress';
 
 import { COLORS } from '@/src/constants';
 
@@ -26,7 +24,15 @@ const IMAGE_SIZE = (SCREEN_WIDTH - 48) / 3; // 3列布局，减去间距
 const MAX_IMAGES = 9;
 const MAX_VIDEO_DURATION = 300; // 5分钟
 
-export default function MediaPicker({ type = 'image', images = [], video = null, onImagesChange, onVideoChange }) {
+export default function MediaPicker({ 
+  type = 'image', 
+  images = [], 
+  video = null, 
+  onImagesChange, 
+  onVideoChange,
+  visible = true,
+  onClose = () => {}
+}) {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({});
   const [previewVisible, setPreviewVisible] = useState(false);
@@ -70,6 +76,9 @@ export default function MediaPicker({ type = 'image', images = [], video = null,
 
         // 模拟上传
         uploadImages(newImages);
+        
+        // 关闭Modal
+        if (onClose) onClose();
       }
     } catch (error) {
       console.error('选择图片失败:', error);
@@ -105,6 +114,9 @@ export default function MediaPicker({ type = 'image', images = [], video = null,
         if (images.length < MAX_IMAGES) {
           onImagesChange([...images, newImage]);
           uploadImages([newImage]);
+          
+          // 关闭Modal
+          if (onClose) onClose();
         } else {
           Alert.alert('提示', `最多只能上传${MAX_IMAGES}张图片`);
         }
@@ -147,6 +159,9 @@ export default function MediaPicker({ type = 'image', images = [], video = null,
 
         onVideoChange(newVideo);
         uploadVideo(newVideo);
+        
+        // 关闭Modal
+        if (onClose) onClose();
       }
     } catch (error) {
       console.error('选择视频失败:', error);
@@ -250,89 +265,44 @@ export default function MediaPicker({ type = 'image', images = [], video = null,
   if (type === 'image') {
     return (
       <>
-        <View style={styles.container}>
-          <View style={styles.imageGrid}>
-            {images.map((image, index) => (
-              <View key={index} style={styles.imageItem}>
-                <TouchableOpacity
-                  onPress={() => previewImage(index)}
-                  activeOpacity={0.9}
-                >
-                  <Image source={{ uri: image.uri }} style={styles.imagePreview} />
-                  
-                  {/* 上传进度 */}
-                  {uploadProgress[image.uri] !== undefined && uploadProgress[image.uri] < 100 && (
-                    <View style={styles.progressOverlay}>
-                      <Progress.Circle
-                        progress={uploadProgress[image.uri] / 100}
-                        size={40}
-                        color={COLORS.white}
-                        thickness={3}
-                        showsText
-                        formatText={() => `${uploadProgress[image.uri]}%`}
-                        textStyle={styles.progressText}
-                      />
-                    </View>
-                  )}
-                </TouchableOpacity>
-
-                {/* 删除按钮 */}
-                <TouchableOpacity
-                  style={styles.removeButton}
-                  onPress={() => removeImage(index)}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="close-circle" size={20} color={COLORS.white} />
+        <Modal visible={visible} transparent animationType="slide">
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>选择图片</Text>
+                <TouchableOpacity onPress={onClose} hitSlop={12}>
+                  <Ionicons name="close" size={24} color={COLORS.gray[700]} />
                 </TouchableOpacity>
               </View>
-            ))}
-
-            {/* 添加按钮 */}
-            {images.length < MAX_IMAGES && (
-              <TouchableOpacity
-                style={styles.addButton}
-                onPress={showImageMenu}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="add" size={32} color={COLORS.gray[400]} />
-                <Text style={styles.addButtonText}>{images.length}/{MAX_IMAGES}</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-
-        {/* 图片预览 Modal */}
-        <Modal visible={previewVisible} transparent animationType="fade">
-          <View style={styles.previewModal}>
-            <TouchableOpacity
-              style={styles.previewClose}
-              onPress={() => setPreviewVisible(false)}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="close" size={30} color={COLORS.white} />
-            </TouchableOpacity>
-
-            <ScrollView
-              horizontal
-              pagingEnabled
-              showsHorizontalScrollIndicator={false}
-              contentOffset={{ x: previewIndex * SCREEN_WIDTH, y: 0 }}
-            >
-              {images.map((image, index) => (
-                <View key={index} style={styles.previewImageContainer}>
-                  <Image
-                    source={{ uri: image.uri }}
-                    style={styles.previewImage}
-                    resizeMode="contain"
-                  />
-                </View>
-              ))}
-            </ScrollView>
-
-            <View style={styles.previewIndicator}>
-              <Text style={styles.previewIndicatorText}>
-                {previewIndex + 1} / {images.length}
-              </Text>
+              
+              <View style={styles.modalBody}>
+                <TouchableOpacity
+                  style={styles.optionButton}
+                  onPress={() => {
+                    pickImages();
+                  }}
+                >
+                  <Ionicons name="images" size={24} color={COLORS.primary[600]} />
+                  <Text style={styles.optionText}>从相册选择</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={styles.optionButton}
+                  onPress={() => {
+                    takePhoto();
+                  }}
+                >
+                  <Ionicons name="camera" size={24} color={COLORS.primary[600]} />
+                  <Text style={styles.optionText}>拍照</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[styles.optionButton, styles.cancelButton]}
+                  onPress={onClose}
+                >
+                  <Text style={styles.cancelText}>取消</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </Modal>
@@ -343,50 +313,37 @@ export default function MediaPicker({ type = 'image', images = [], video = null,
   // 渲染视频选择
   if (type === 'video') {
     return (
-      <View style={styles.container}>
-        {video ? (
-          <View style={styles.videoContainer}>
-            <View style={styles.videoPreview}>
-              <Ionicons name="videocam" size={48} color={COLORS.primary[600]} />
-              <Text style={styles.videoInfo}>
-                {formatDuration(video.duration)} · {formatFileSize(video.size)}
-              </Text>
-              
-              {/* 上传进度 */}
-              {uploadProgress[video.uri] !== undefined && uploadProgress[video.uri] < 100 && (
-                <View style={styles.videoProgressContainer}>
-                  <Progress.Bar
-                    progress={uploadProgress[video.uri] / 100}
-                    width={200}
-                    color={COLORS.primary[600]}
-                    borderRadius={4}
-                  />
-                  <Text style={styles.videoProgressText}>{uploadProgress[video.uri]}%</Text>
-                </View>
-              )}
+      <Modal visible={visible} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>选择视频</Text>
+              <TouchableOpacity onPress={onClose} hitSlop={12}>
+                <Ionicons name="close" size={24} color={COLORS.gray[700]} />
+              </TouchableOpacity>
             </View>
-
-            <TouchableOpacity
-              style={styles.videoRemoveButton}
-              onPress={removeVideo}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="trash-outline" size={20} color={COLORS.error[600]} />
-              <Text style={styles.videoRemoveText}>删除视频</Text>
-            </TouchableOpacity>
+            
+            <View style={styles.modalBody}>
+              <TouchableOpacity
+                style={styles.optionButton}
+                onPress={() => {
+                  pickVideo();
+                }}
+              >
+                <Ionicons name="videocam" size={24} color={COLORS.primary[600]} />
+                <Text style={styles.optionText}>从相册选择视频</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.optionButton, styles.cancelButton]}
+                onPress={onClose}
+              >
+                <Text style={styles.cancelText}>取消</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        ) : (
-          <TouchableOpacity
-            style={styles.videoSelectButton}
-            onPress={pickVideo}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="videocam-outline" size={32} color={COLORS.primary[600]} />
-            <Text style={styles.videoSelectText}>选择视频</Text>
-            <Text style={styles.videoSelectHint}>最长5分钟</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+        </View>
+      </Modal>
     );
   }
 
@@ -394,157 +351,60 @@ export default function MediaPicker({ type = 'image', images = [], video = null,
 }
 
 const styles = StyleSheet.create({
-  container: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.gray[100],
-  },
-  imageGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginHorizontal: -4,
-  },
-  imageItem: {
-    width: IMAGE_SIZE,
-    height: IMAGE_SIZE,
-    margin: 4,
-    position: 'relative',
-  },
-  imagePreview: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 8,
-    backgroundColor: COLORS.gray[200],
-  },
-  progressOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  progressText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: COLORS.white,
-  },
-  removeButton: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    borderRadius: 10,
-  },
-  addButton: {
-    width: IMAGE_SIZE,
-    height: IMAGE_SIZE,
-    margin: 4,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: COLORS.gray[300],
-    borderStyle: 'dashed',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: COLORS.gray[50],
-  },
-  addButtonText: {
-    fontSize: 12,
-    color: COLORS.gray[500],
-    marginTop: 4,
-  },
-  previewModal: {
+  // Modal 样式
+  modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
   },
-  previewClose: {
-    position: 'absolute',
-    top: 50,
-    right: 20,
-    zIndex: 10,
-    padding: 8,
+  modalContent: {
+    backgroundColor: COLORS.white,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
   },
-  previewImageContainer: {
-    width: SCREEN_WIDTH,
-    height: '100%',
-    justifyContent: 'center',
+  modalHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.gray[200],
   },
-  previewImage: {
-    width: SCREEN_WIDTH,
-    height: '80%',
-  },
-  previewIndicator: {
-    position: 'absolute',
-    bottom: 50,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-  },
-  previewIndicatorText: {
-    fontSize: 16,
-    color: COLORS.white,
+  modalTitle: {
+    fontSize: 18,
     fontWeight: '600',
+    color: COLORS.gray[900],
   },
-  videoContainer: {
-    backgroundColor: COLORS.gray[50],
-    borderRadius: 12,
+  modalBody: {
     padding: 16,
   },
-  videoPreview: {
-    alignItems: 'center',
-    paddingVertical: 24,
-  },
-  videoInfo: {
-    fontSize: 14,
-    color: COLORS.gray[600],
-    marginTop: 12,
-  },
-  videoProgressContainer: {
-    marginTop: 16,
-    alignItems: 'center',
-  },
-  videoProgressText: {
-    fontSize: 12,
-    color: COLORS.gray[600],
-    marginTop: 8,
-  },
-  videoRemoveButton: {
+  optionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    marginTop: 8,
-  },
-  videoRemoveText: {
-    fontSize: 14,
-    color: COLORS.error[600],
-    marginLeft: 6,
-    fontWeight: '500',
-  },
-  videoSelectButton: {
-    alignItems: 'center',
-    paddingVertical: 40,
-    backgroundColor: COLORS.gray[50],
+    padding: 16,
+    backgroundColor: COLORS.white,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: COLORS.gray[300],
-    borderStyle: 'dashed',
+    borderColor: COLORS.gray[200],
+    marginBottom: 12,
   },
-  videoSelectText: {
+  optionText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.primary[600],
-    marginTop: 12,
+    fontWeight: '500',
+    color: COLORS.gray[900],
+    marginLeft: 12,
   },
-  videoSelectHint: {
-    fontSize: 13,
-    color: COLORS.gray[500],
-    marginTop: 4,
+  cancelButton: {
+    justifyContent: 'center',
+    borderColor: COLORS.gray[300],
+    marginTop: 8,
+  },
+  cancelText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: COLORS.gray[600],
+    textAlign: 'center',
   },
 });
 

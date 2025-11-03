@@ -19,6 +19,7 @@ import { useDispatch } from 'react-redux';
 
 import { COLORS } from '@/src/constants';
 import { toggleFavoritePost, toggleFollowUser, toggleLikePost } from '@/src/store/slices/communitySlice';
+import { tagsStringToArray } from '@/src/utils/dataTransform';
 import { formatDistanceToNow } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import ImageViewer from './ImageViewer';
@@ -27,6 +28,7 @@ import ImageViewer from './ImageViewer';
  * 格式化数字显示
  */
 const formatCount = (count) => {
+  if (!count && count !== 0) return '0';
   if (count >= 10000) {
     return `${(count / 10000).toFixed(1)}w`;
   }
@@ -89,11 +91,16 @@ export default function PostDetail({ post, onShare }) {
 
   // 渲染标签
   const renderTags = () => {
-    if (!post.tags || post.tags.length === 0) return null;
+    // 处理tags：如果是字符串，转为数组；如果是数组，直接使用
+    const tagsArray = typeof post.tags === 'string' 
+      ? tagsStringToArray(post.tags) 
+      : (Array.isArray(post.tags) ? post.tags : []);
+    
+    if (tagsArray.length === 0) return null;
 
     return (
       <View style={styles.tagsContainer}>
-        {post.tags.map((tag, index) => (
+        {tagsArray.map((tag, index) => (
           <View key={index} style={styles.tag}>
             <Text style={styles.tagText}>#{tag}</Text>
           </View>

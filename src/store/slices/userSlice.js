@@ -16,7 +16,7 @@ const initialState = {
     nickname: '',
     email: '',
     phone: '',
-    avatar: null,
+    avatarUrl: null,  // 改为 avatarUrl（与API文档一致）
     bio: '',
     location: '',
     birthday: null,
@@ -26,16 +26,13 @@ const initialState = {
     level: 1,
     status: 'ACTIVE',
     badges: [],
-    targetCountry: null,
-    targetType: null,
-    targetDate: null,
-    currentStatus: null,
+    // 注意：targetCountry, targetType, targetDate, currentStatus 已移至 preferences.onboarding
   },
   
   // 用户统计信息
   stats: {
-    postsCount: 0,
-    followersCount: 0,
+    postCount: 0,        // 改为 postCount（与API文档一致）
+    followerCount: 0,    // 改为 followerCount（与API文档一致）
     followingCount: 0,
     likesCount: 0,
     collectCount: 0,
@@ -367,9 +364,9 @@ const userSlice = createSlice({
       })
       .addCase(uploadUserAvatar.fulfilled, (state, action) => {
         state.loading = false;
-        // action.payload 包含 { avatar, thumbnail }
-        if (action.payload.avatar) {
-          state.profile.avatar = action.payload.avatar;
+        // action.payload 包含 { avatarUrl, thumbnailUrl }（根据API文档）
+        if (action.payload.avatarUrl) {
+          state.profile.avatarUrl = action.payload.avatarUrl;
         }
         state.error = null;
       })

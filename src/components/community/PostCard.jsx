@@ -19,6 +19,7 @@ import { useDispatch } from 'react-redux';
 
 import { COLORS } from '@/src/constants';
 import { toggleFavoritePost, toggleFollowUser, toggleLikePost } from '@/src/store/slices/communitySlice';
+import { tagsStringToArray } from '@/src/utils/dataTransform';
 import { formatDistanceToNow } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import TopicTag from './TopicTag';
@@ -27,6 +28,7 @@ import TopicTag from './TopicTag';
  * 格式化数字显示（1.2k, 1.5w）
  */
 const formatCount = (count) => {
+  if (!count && count !== 0) return '0';
   if (count >= 10000) {
     return `${(count / 10000).toFixed(1)}w`;
   }
@@ -156,11 +158,16 @@ export default function PostCard({ post, onLongPress }) {
 
   // 渲染标签（作者信息下方）
   const renderTags = () => {
-    if (!post.tags || post.tags.length === 0) return null;
+    // 处理tags：如果是字符串，转为数组；如果是数组，直接使用
+    const tagsArray = typeof post.tags === 'string' 
+      ? tagsStringToArray(post.tags) 
+      : (Array.isArray(post.tags) ? post.tags : []);
+    
+    if (tagsArray.length === 0) return null;
 
     return (
       <View style={styles.tagsContainer}>
-        {post.tags.slice(0, 3).map((tag, index) => (
+        {tagsArray.slice(0, 3).map((tag, index) => (
           <Text key={index} style={styles.tag}>
             #{tag}
           </Text>

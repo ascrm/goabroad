@@ -42,6 +42,7 @@ export default function VideoCard({ video, onLike, onComment, onShare }) {
 
   // 格式化数字
   const formatCount = (count) => {
+    if (!count && count !== 0) return '0';
     if (count >= 10000) return `${(count / 10000).toFixed(1)}万`;
     if (count >= 1000) return `${(count / 1000).toFixed(1)}k`;
     return count.toString();
@@ -152,7 +153,7 @@ export default function VideoCard({ video, onLike, onComment, onShare }) {
 
 VideoCard.propTypes = {
   video: PropTypes.shape({
-    id: PropTypes.string.isRequired,
+    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,  // 支持数字ID
     title: PropTypes.string.isRequired,
     coverUrl: PropTypes.string.isRequired,
     duration: PropTypes.string.isRequired,
@@ -162,9 +163,10 @@ VideoCard.propTypes = {
     isLiked: PropTypes.bool,
     topics: PropTypes.arrayOf(PropTypes.string),
     author: PropTypes.shape({
-      id: PropTypes.string.isRequired,
+      id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,  // 支持数字ID
       name: PropTypes.string.isRequired,
-      avatar: PropTypes.string.isRequired,
+      avatarUrl: PropTypes.string,  // 改为 avatarUrl（与API一致）
+      avatar: PropTypes.string,     // 保留兼容
     }).isRequired,
     timeAgo: PropTypes.string.isRequired,
   }).isRequired,

@@ -4,7 +4,7 @@
  */
 
 import { createSlice } from '@reduxjs/toolkit';
-import { loginUser, registerUser, logoutUser } from './authSlice';
+import { loginUser, logoutUser, registerUser } from './authSlice';
 
 const initialState = {
   // 用户信息
@@ -35,7 +35,7 @@ const initialState = {
   // 统计数据
   stats: {
     planProgress: 0,
-    postsCount: 0,
+    postCount: 0,        // 改为 postCount（与API一致）
     favoritesCount: 0,
     likesCount: 0,
   },
@@ -126,7 +126,7 @@ const profileSlice = createSlice({
     
     // 增加发帖数
     incrementPostsCount: (state) => {
-      state.stats.postsCount += 1;
+      state.stats.postCount += 1;  // 改为 postCount
     },
     
     // 增加收藏数
@@ -225,7 +225,7 @@ const profileSlice = createSlice({
           if (userInfo.stats) {
             state.stats = {
               ...state.stats,
-              postsCount: userInfo.stats.postsCount || 0,
+              postCount: userInfo.stats.postCount || userInfo.stats.postsCount || 0,  // 优先使用 postCount，兼容旧字段
               favoritesCount: userInfo.stats.favoritesCount || 0,
               likesCount: userInfo.stats.likesCount || 0,
             };
@@ -257,7 +257,7 @@ const profileSlice = createSlice({
           if (userInfo.stats) {
             state.stats = {
               ...state.stats,
-              postsCount: userInfo.stats.postsCount || 0,
+              postCount: userInfo.stats.postCount || userInfo.stats.postsCount || 0,  // 优先使用 postCount，兼容旧字段
               favoritesCount: userInfo.stats.favoritesCount || 0,
               likesCount: userInfo.stats.likesCount || 0,
             };

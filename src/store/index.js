@@ -17,31 +17,10 @@ import toolsSlice from './slices/toolsSlice';
 import uiSlice from './slices/uiSlice';
 import userSlice from './slices/userSlice';
 
-// Redux Persist 配置
-const persistConfig = {
-  key: 'root',
-  storage: AsyncStorage,
-  whitelist: ['auth', 'user'], // 只持久化 auth 和 user 状态
-  blacklist: ['ui'], // UI 状态不持久化
-};
-
-// 各个模块的持久化配置
-const authPersistConfig = {
-  key: 'auth',
-  storage: AsyncStorage,
-  whitelist: ['token', 'refreshToken', 'userInfo', 'isLoggedIn', 'loginTime', 'tokenExpiry', 'loginMethod'],
-};
-
-const userPersistConfig = {
-  key: 'user',
-  storage: AsyncStorage,
-  whitelist: ['profile', 'preferences'],
-};
-
 // 根 reducer
 const rootReducer = combineReducers({
-  auth: persistReducer(authPersistConfig, authSlice),
-  user: persistReducer(userPersistConfig, userSlice),
+  auth: authSlice,
+  user: userSlice,
   countries: countriesSlice,
   planning: planningSlice,
   community: communitySlice,
@@ -49,6 +28,14 @@ const rootReducer = combineReducers({
   tools: toolsSlice,
   ui: uiSlice,
 });
+
+// Redux Persist 配置 - 只在根 reducer 层面持久化
+const persistConfig = {
+  key: 'root',
+  storage: AsyncStorage,
+  whitelist: ['auth', 'user'], // 只持久化 auth 和 user 状态
+  blacklist: ['ui', 'countries', 'planning', 'community', 'profile', 'tools'], // 其他状态不持久化
+};
 
 // 持久化根 reducer
 const persistedReducer = persistReducer(persistConfig, rootReducer);
@@ -66,8 +53,13 @@ export const store = configureStore({
           'persist/PAUSE',
           'persist/PURGE',
           'persist/REGISTER',
+          'persist/FLUSH',
         ],
+        // 忽略这些路径的序列化检查
+        ignoredPaths: ['register', 'rehydrate'],
       },
+      // 关闭不可变性检查以提升性能（生产环境）
+      immutableCheck: __DEV__,
     }),
   // 开发环境启用 DevTools
   devTools: __DEV__,
