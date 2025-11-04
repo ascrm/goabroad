@@ -5,27 +5,30 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    KeyboardAvoidingView,
-    Platform,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Image,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 import CategoryPicker from '@/src/components/community/create/CategoryPicker';
-import MediaPicker from '@/src/components/community/create/MediaPicker';
+import EmojiPicker from '@/src/components/community/create/EmojiPicker';
 import TagInput from '@/src/components/community/create/TagInput';
+import EditorToolbar from '@/src/components/tools/EditorToolbar';
 import { Avatar } from '@/src/components/ui';
 import { COLORS } from '@/src/constants';
 import { uploadPostImages } from '@/src/services/api/modules/uploadApi';
@@ -48,8 +51,7 @@ export default function CreatePost() {
   const [tags, setTags] = useState([]); // 可选
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [showTagInput, setShowTagInput] = useState(false);
-  const [showImagePicker, setShowImagePicker] = useState(false);
-  const [showVideoPicker, setShowVideoPicker] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
 
@@ -74,6 +76,36 @@ export default function CreatePost() {
       contentInputRef.current?.focus();
     }, 300);
   }, []);
+
+  // 监听键盘显示事件，自动关闭表情面板
+  useEffect(() => {
+    const keyboardWillShow = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => {
+        // 键盘即将显示时，关闭表情面板
+        if (showEmojiPicker) {
+          setShowEmojiPicker(false);
+        }
+      }
+    );
+
+    // 清理监听器
+    return () => {
+      keyboardWillShow.remove();
+    };
+  }, [showEmojiPicker]);
+
+  // 请求相机和相册权限
+  const requestPermissions = async () => {
+    const cameraPermission = await ImagePicker.requestCameraPermissionsAsync();
+    const mediaPermission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    
+    if (cameraPermission.status !== 'granted' || mediaPermission.status !== 'granted') {
+      Alert.alert('权限不足', '需要相机和相册权限才能上传图片或视频');
+      return false;
+    }
+    return true;
+  };
 
   // 加载草稿
   const loadDraft = async () => {
@@ -159,14 +191,21 @@ export default function CreatePost() {
 
       console.log('✅ [上传图片] 上传成功:', uploadResults);
 
-      // 处理上传结果：API返回的是 { data: { files: [...] } }
-      const uploadedFiles = uploadResults?.data?.files || uploadResults?.files || [];
+      // 处理上传结果
+      // 根据 API 文档：批量上传返回 { data: ["url1", "url2", ...] }
+      // uploadMultipleFiles 函数包装成 { data: { files: ["url1", "url2", ...] } }
+      const uploadedUrls = uploadResults?.data?.files || uploadResults?.data || [];
+      
+      // 过滤掉 null/undefined 值
+      const validUploadedUrls = uploadedUrls.filter(Boolean);
       
       // 合并已上传的图片 URL 和新上传的图片 URL
-      const uploadedUrls = uploadedFiles.map((result) => result.url);
       const existingUrls = images.filter((img) => img.url).map((img) => img.url);
 
-      return [...existingUrls, ...uploadedUrls];
+      const allUrls = [...existingUrls, ...validUploadedUrls];
+      console.log('✅ [上传图片] 最终URL列表:', allUrls);
+      
+      return allUrls;
     } catch (error) {
       console.error('❌ [上传图片] 上传失败:', error);
       throw new Error('图片上传失败，请重试');
@@ -190,17 +229,19 @@ export default function CreatePost() {
       // 2. 发布帖子
       console.log('📤 [发布流程] 步骤 2/2: 发布帖子');
 
-      // 合并图片和视频到 mediaUrls
+      // 合并图片和视频到 mediaUrls，并过滤掉 null/undefined 值
       const mediaUrls = [
         ...imageUrls,
-        ...(video ? [video.url || video.uri || video] : [])
-      ];
+        ...(video ? [video.url || video.uri] : [])
+      ].filter(Boolean); // 过滤掉 null/undefined/空字符串
+
+      console.log('📤 [发布帖子] mediaUrls:', mediaUrls);
 
       const postData = {
         contentType: 'TREND', // 新API：TREND(日常动态), QUESTION(提问题), ANSWER(写答案), GUIDE(写攻略)
         content: content.trim(),
         status: 'PUBLISHED',
-        mediaUrls: mediaUrls, // 新API：使用 mediaUrls 替代 images 和 videos
+        mediaUrls: mediaUrls.length > 0 ? mediaUrls : undefined, // 如果没有媒体文件，不发送该字段
         category: category || tags[0], // 新API：使用 category 替代 tags，取第一个tag作为分类
         coverImage: imageUrls.length > 0 ? imageUrls[0] : null, // 使用第一张图片作为封面
         allowComment: true, // 新API：是否允许评论
@@ -281,6 +322,104 @@ export default function CreatePost() {
     setTags(tags.filter((t) => t !== tag));
   };
 
+  // ========== 媒体上传功能 ==========
+
+  // 拍照
+  const handleTakePhoto = async () => {
+    const hasPermission = await requestPermissions();
+    if (!hasPermission) return;
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets?.[0]) {
+      if (images.length >= 9) {
+        Alert.alert('提示', '最多只能上传9张图片');
+        return;
+      }
+      setImages([...images, { uri: result.assets[0].uri }]);
+    }
+  };
+
+  // 从相册选择图片
+  const handlePickImages = async () => {
+    const hasPermission = await requestPermissions();
+    if (!hasPermission) return;
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: true,
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets) {
+      const newImages = result.assets.map(asset => ({ uri: asset.uri }));
+      const totalImages = [...images, ...newImages];
+      
+      if (totalImages.length > 9) {
+        Alert.alert('提示', `最多只能上传9张图片，已选择${totalImages.length}张`);
+        setImages(totalImages.slice(0, 9));
+      } else {
+        setImages(totalImages);
+      }
+    }
+  };
+
+  // 录制视频
+  const handleRecordVideo = async () => {
+    const hasPermission = await requestPermissions();
+    if (!hasPermission) return;
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+      allowsEditing: true,
+      quality: 0.8,
+      videoMaxDuration: 60, // 限制60秒
+    });
+
+    if (!result.canceled && result.assets?.[0]) {
+      if (video) {
+        Alert.alert('提示', '只能上传一个视频，是否替换当前视频？', [
+          { text: '取消', style: 'cancel' },
+          { text: '替换', onPress: () => setVideo({ uri: result.assets[0].uri }) },
+        ]);
+      } else {
+        setVideo({ uri: result.assets[0].uri });
+        // 如果添加了视频，清空图片
+        setImages([]);
+      }
+    }
+  };
+
+  // 从相册选择视频
+  const handlePickVideo = async () => {
+    const hasPermission = await requestPermissions();
+    if (!hasPermission) return;
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+      allowsEditing: true,
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets?.[0]) {
+      if (video) {
+        Alert.alert('提示', '只能上传一个视频，是否替换当前视频？', [
+          { text: '取消', style: 'cancel' },
+          { text: '替换', onPress: () => setVideo({ uri: result.assets[0].uri }) },
+        ]);
+      } else {
+        setVideo({ uri: result.assets[0].uri });
+        // 如果添加了视频，清空图片
+        setImages([]);
+      }
+    }
+  };
+
   // 移除图片
   const removeImage = (index) => {
     setImages(images.filter((_, i) => i !== index));
@@ -343,6 +482,12 @@ export default function CreatePost() {
                 placeholderTextColor={COLORS.gray[400]}
                 value={content}
                 onChangeText={setContent}
+                onFocus={() => {
+                  // 当输入框获得焦点时，如果表情面板正在显示，则关闭它
+                  if (showEmojiPicker) {
+                    setShowEmojiPicker(false);
+                  }
+                }}
                 multiline
                 autoFocus
                 textAlignVertical="top"
@@ -465,101 +610,35 @@ export default function CreatePost() {
         </View>
 
         {/* 底部工具栏 */}
-        <View style={styles.toolbar}>
-          <View style={styles.toolbarLeft}>
-            {/* 图片按钮 */}
-            <TouchableOpacity
-              onPress={() => setShowImagePicker(true)}
-              style={styles.toolBtn}
-              disabled={!!video}
-            >
-              <Ionicons
-                name="image-outline"
-                size={24}
-                color={video ? COLORS.gray[300] : '#00A6F0'}
-              />
-            </TouchableOpacity>
-
-            {/* 相机按钮 */}
-            <TouchableOpacity
-              onPress={() => setShowImagePicker(true)}
-              style={styles.toolBtn}
-              disabled={!!video}
-            >
-              <Ionicons
-                name="camera-outline"
-                size={24}
-                color={video ? COLORS.gray[300] : '#00A6F0'}
-              />
-            </TouchableOpacity>
-
-            {/* 视频按钮 */}
-            <TouchableOpacity
-              onPress={() => setShowVideoPicker(true)}
-              style={styles.toolBtn}
-              disabled={images.length > 0}
-            >
-              <Ionicons
-                name="videocam-outline"
-                size={24}
-                color={images.length > 0 ? COLORS.gray[300] : '#00A6F0'}
-              />
-            </TouchableOpacity>
-
-            {/* 直播按钮 */}
-            <TouchableOpacity
-              style={styles.toolBtn}
-            >
-              <Ionicons
-                name="tv-outline"
-                size={24}
-                color="#00A6F0"
-              />
-            </TouchableOpacity>
-
-            {/* GIF 按钮 */}
-            <TouchableOpacity
-              style={styles.toolBtn}
-            >
-              <Text style={styles.gifText}>GIF</Text>
-            </TouchableOpacity>
-
-            {/* 标签按钮 */}
-            <TouchableOpacity
-              onPress={() => setShowTagInput(!showTagInput)}
-              style={styles.toolBtn}
-            >
-              <Ionicons
-                name="pricetag-outline"
-                size={24}
-                color="#00A6F0"
-              />
-            </TouchableOpacity>
-
-            {/* 分区按钮 */}
-            <TouchableOpacity
-              onPress={() => setShowCategoryPicker(true)}
-              style={styles.toolBtn}
-            >
-              <Ionicons name="grid-outline" size={24} color="#00A6F0" />
-            </TouchableOpacity>
-
-            {/* 更多选项 */}
-            <TouchableOpacity style={styles.toolBtn}>
-              <Ionicons name="add-circle-outline" size={24} color="#00A6F0" />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.toolbarRight}>
-            {isSavingDraft && (
-              <Text style={styles.savingText}>保存中...</Text>
-            )}
-            {/* 循环图标 */}
-            <TouchableOpacity style={styles.toolBtn}>
-              <Ionicons name="sync-outline" size={22} color="#00A6F0" />
-            </TouchableOpacity>
-          </View>
-        </View>
+        <EditorToolbar
+          config={{
+            showImage: !video,
+            showCamera: !video,
+            showVideo: images.length === 0,
+            showMention: false,
+            showTag: true,
+            showLocation: false,
+            showEmoji: true,
+          }}
+          onPickImages={handlePickImages}
+          onTakePhoto={handleTakePhoto}
+          onPickVideo={handlePickVideo}
+          onAddTag={() => setShowTagInput(!showTagInput)}
+          onAddEmoji={() => {
+            if (showEmojiPicker) {
+              // 如果表情面板已显示，则关闭它并重新聚焦输入框
+              setShowEmojiPicker(false);
+              setTimeout(() => {
+                contentInputRef.current?.focus();
+              }, 100);
+            } else {
+              // 如果表情面板未显示，先关闭键盘，再显示表情面板
+              contentInputRef.current?.blur();
+              setShowEmojiPicker(true);
+            }
+          }}
+          isSaving={isSavingDraft}
+        />
 
         {/* 标签输入（展开式） */}
         {showTagInput && (
@@ -574,32 +653,6 @@ export default function CreatePost() {
           </View>
         )}
 
-        {/* 图片选择器 Modal */}
-        {showImagePicker && (
-          <MediaPicker
-            type="image"
-            images={images}
-            video={video}
-            onImagesChange={setImages}
-            onVideoChange={setVideo}
-            visible={showImagePicker}
-            onClose={() => setShowImagePicker(false)}
-          />
-        )}
-
-        {/* 视频选择器 Modal */}
-        {showVideoPicker && (
-          <MediaPicker
-            type="video"
-            images={images}
-            video={video}
-            onImagesChange={setImages}
-            onVideoChange={setVideo}
-            visible={showVideoPicker}
-            onClose={() => setShowVideoPicker(false)}
-          />
-        )}
-
         {/* 分区选择器 Modal */}
         {showCategoryPicker && (
           <CategoryPicker
@@ -612,7 +665,17 @@ export default function CreatePost() {
             onClose={() => setShowCategoryPicker(false)}
           />
         )}
+
       </KeyboardAvoidingView>
+
+      {/* Emoji 选择器（键盘替换模式 - 放在 KeyboardAvoidingView 外部） */}
+      <EmojiPicker
+        visible={showEmojiPicker}
+        onSelectEmoji={(emoji) => {
+          // 在光标位置插入 emoji（不关闭面板，允许连续选择）
+          setContent((prev) => prev + emoji);
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -802,40 +865,6 @@ const styles = StyleSheet.create({
     color: '#00A6F0',
   },
 
-  // 底部工具栏
-  toolbar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: COLORS.gray[200],
-    backgroundColor: COLORS.white,
-  },
-  toolbarLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  toolBtn: {
-    padding: 8,
-  },
-  gifText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#00A6F0',
-  },
-  toolbarRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  savingText: {
-    fontSize: 11,
-    color: COLORS.gray[500],
-    marginRight: 8,
-  },
 
   // 标签输入
   tagInputContainer: {

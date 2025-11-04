@@ -1,287 +1,226 @@
 /**
- * 标签输入组件
+ * 标签输入组件（Modal形式）
  * 用于添加和管理帖子标签
+ * 基于 create.jsx 中的 TagInputModal 实现
  */
 
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 import { COLORS } from '@/src/constants';
 
 // 热门标签推荐
-const HOT_TAGS = [
-  '留学申请',
-  '签证',
-  '语言考试',
-  '选校',
-  '文书',
-  '面试',
-  '奖学金',
-  '实习',
-  '租房',
-  '生活',
-  '工作',
-  '移民',
-  '经验分享',
-  '求助',
-  '攻略',
+const POPULAR_TAGS = [
+  '留学', '签证', '托福', '雅思', 'GRE', 'GMAT',
+  '美国', '英国', '加拿大', '澳洲', '新西兰',
+  '申请', '文书', '推荐信', '面试', '选校'
 ];
 
-export default function TagInput({ tags = [], onTagsChange, maxTags = 5 }) {
-  const [inputText, setInputText] = useState('');
-  const [showHotTags, setShowHotTags] = useState(true);
+export default function TagInput({ 
+  visible = false, 
+  onClose = () => {}, 
+  onAddTag = () => {}, 
+  currentTags = [],
+  maxTags = 5
+}) {
+  const [tagInput, setTagInput] = useState('');
 
   // 添加标签
-  const addTag = (tag) => {
-    const trimmedTag = tag.trim();
-    
-    if (!trimmedTag) return;
-    
-    if (tags.length >= maxTags) {
-      alert(`最多只能添加${maxTags}个标签`);
-      return;
+  const handleAddTag = () => {
+    if (tagInput.trim()) {
+      onAddTag(tagInput.trim());
+      setTagInput('');
     }
-    
-    if (tags.includes(trimmedTag)) {
-      alert('标签已存在');
-      return;
-    }
-    
-    if (trimmedTag.length > 20) {
-      alert('标签长度不能超过20个字符');
-      return;
-    }
-    
-    onTagsChange([...tags, trimmedTag]);
-    setInputText('');
   };
 
-  // 删除标签
-  const removeTag = (tagToRemove) => {
-    onTagsChange(tags.filter((tag) => tag !== tagToRemove));
-  };
-
-  // 从热门标签添加
-  const addHotTag = (tag) => {
-    if (tags.includes(tag)) {
-      alert('标签已存在');
-      return;
-    }
-    
-    if (tags.length >= maxTags) {
-      alert(`最多只能添加${maxTags}个标签`);
-      return;
-    }
-    
-    onTagsChange([...tags, tag]);
-  };
-
-  // 获取可用的热门标签（排除已添加的）
-  const getAvailableHotTags = () => {
-    return HOT_TAGS.filter((tag) => !tags.includes(tag));
+  // 选择热门标签
+  const handleSelectPopularTag = (tag) => {
+    onAddTag(tag);
   };
 
   return (
-    <View style={styles.container}>
-      {/* 标题 */}
-      <View style={styles.titleRow}>
-        <View style={styles.titleLeft}>
-          <Ionicons name="pricetag-outline" size={20} color={COLORS.primary[600]} />
-          <Text style={styles.title}>添加标签</Text>
-          <Text style={styles.tagCount}>
-            ({tags.length}/{maxTags})
-          </Text>
-        </View>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <KeyboardAvoidingView
+        style={styles.modalKeyboardView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
         <TouchableOpacity
-          onPress={() => setShowHotTags(!showHotTags)}
-          activeOpacity={0.7}
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={onClose}
         >
-          <Text style={styles.toggleText}>
-            {showHotTags ? '收起' : '展开'}推荐
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* 输入框 */}
-      <View style={styles.inputRow}>
-        <TextInput
-          style={styles.input}
-          placeholder="输入标签后按回车添加..."
-          placeholderTextColor={COLORS.gray[400]}
-          value={inputText}
-          onChangeText={setInputText}
-          onSubmitEditing={() => addTag(inputText)}
-          returnKeyType="done"
-          maxLength={20}
-        />
-        {inputText.length > 0 && (
-          <TouchableOpacity
-            style={styles.addButton}
-            onPress={() => addTag(inputText)}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="add" size={20} color={COLORS.primary[600]} />
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* 已添加的标签 */}
-      {tags.length > 0 && (
-        <View style={styles.tagsContainer}>
-          {tags.map((tag, index) => (
-            <View key={index} style={styles.tag}>
-              <Text style={styles.tagText}>{tag}</Text>
-              <TouchableOpacity
-                onPress={() => removeTag(tag)}
-                style={styles.tagRemove}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="close" size={14} color={COLORS.primary[600]} />
+          <View style={styles.tagInputSheet} onStartShouldSetResponder={() => true}>
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>添加标签</Text>
+              <TouchableOpacity onPress={onClose} hitSlop={12}>
+                <Ionicons name="close" size={24} color={COLORS.gray[700]} />
               </TouchableOpacity>
             </View>
-          ))}
-        </View>
-      )}
 
-      {/* 热门标签推荐 */}
-      {showHotTags && getAvailableHotTags().length > 0 && (
-        <View style={styles.hotTagsContainer}>
-          <Text style={styles.hotTagsTitle}>热门标签</Text>
-          <View style={styles.hotTagsWrapper}>
-            {getAvailableHotTags().slice(0, 12).map((tag, index) => (
-              <TouchableOpacity
-                key={index}
-                style={styles.hotTag}
-                onPress={() => addHotTag(tag)}
-                activeOpacity={0.7}
-                disabled={tags.length >= maxTags}
-              >
-                <Text
-                  style={[
-                    styles.hotTagText,
-                    tags.length >= maxTags && styles.hotTagTextDisabled,
-                  ]}
-                >
-                  {tag}
-                </Text>
-              </TouchableOpacity>
-            ))}
+            <ScrollView 
+              style={styles.tagInputContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.tagInputRow}>
+                <TextInput
+                  style={styles.tagInput}
+                  placeholder="输入自定义标签"
+                  placeholderTextColor={COLORS.gray[400]}
+                  value={tagInput}
+                  onChangeText={setTagInput}
+                  onSubmitEditing={handleAddTag}
+                  returnKeyType="done"
+                />
+                <TouchableOpacity style={styles.addBtn} onPress={handleAddTag}>
+                  <Text style={styles.addBtnText}>添加</Text>
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.sectionTitle}>热门标签</Text>
+              <View style={styles.popularTags}>
+                {POPULAR_TAGS.map((tag, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={[
+                      styles.popularTag,
+                      currentTags.includes(tag) && styles.popularTagSelected
+                    ]}
+                    onPress={() => handleSelectPopularTag(tag)}
+                    disabled={currentTags.includes(tag)}
+                  >
+                    <Text style={[
+                      styles.popularTagText,
+                      currentTags.includes(tag) && styles.popularTagTextSelected
+                    ]}>
+                      #{tag}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={styles.tagHint}>
+                已选择 {currentTags.length}/{maxTags} 个标签
+              </Text>
+            </ScrollView>
           </View>
-        </View>
-      )}
-    </View>
+        </TouchableOpacity>
+      </KeyboardAvoidingView>
+    </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.gray[100],
+  modalKeyboardView: {
+    flex: 1,
   },
-  titleRow: {
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  tagInputSheet: {
+    backgroundColor: COLORS.white,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '80%',
+  },
+  tagInputContent: {
+    paddingBottom: Platform.OS === 'ios' ? 34 : 16,
+  },
+  sheetHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.gray[100],
   },
-  titleLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  title: {
+  sheetTitle: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
     color: COLORS.gray[900],
-    marginLeft: 8,
   },
-  tagCount: {
-    fontSize: 13,
-    color: COLORS.gray[500],
-    marginLeft: 4,
-  },
-  toggleText: {
-    fontSize: 13,
-    color: COLORS.primary[600],
-    fontWeight: '500',
-  },
-  inputRow: {
+  tagInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 12,
+    gap: 12,
+  },
+  tagInput: {
+    flex: 1,
+    height: 40,
+    paddingHorizontal: 12,
     backgroundColor: COLORS.gray[50],
     borderRadius: 8,
-    paddingHorizontal: 12,
-    marginBottom: 12,
-  },
-  input: {
-    flex: 1,
     fontSize: 15,
     color: COLORS.gray[900],
-    paddingVertical: 10,
   },
-  addButton: {
-    padding: 4,
+  addBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#0284C7',
+    borderRadius: 8,
   },
-  tagsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 8,
-  },
-  tag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingLeft: 12,
-    paddingRight: 8,
-    paddingVertical: 6,
-    backgroundColor: COLORS.primary[50],
-    borderRadius: 16,
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  tagText: {
+  addBtnText: {
     fontSize: 14,
-    color: COLORS.primary[600],
-    fontWeight: '500',
+    fontWeight: '600',
+    color: COLORS.white,
   },
-  tagRemove: {
-    marginLeft: 4,
-    padding: 2,
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.gray[700],
+    paddingHorizontal: 20,
+    marginBottom: 12,
   },
-  hotTagsContainer: {
-    marginTop: 8,
-  },
-  hotTagsTitle: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: COLORS.gray[600],
-    marginBottom: 8,
-  },
-  hotTagsWrapper: {
+  popularTags: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    paddingHorizontal: 20,
+    gap: 8,
   },
-  hotTag: {
+  popularTag: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     backgroundColor: COLORS.gray[100],
     borderRadius: 16,
-    marginRight: 8,
-    marginBottom: 8,
   },
-  hotTagText: {
+  popularTagSelected: {
+    backgroundColor: COLORS.gray[200],
+    opacity: 0.5,
+  },
+  popularTagText: {
     fontSize: 13,
+    fontWeight: '500',
     color: COLORS.gray[700],
   },
-  hotTagTextDisabled: {
+  popularTagTextSelected: {
     color: COLORS.gray[400],
   },
+  tagHint: {
+    fontSize: 12,
+    color: COLORS.gray[500],
+    paddingHorizontal: 20,
+    paddingTop: 12,
+  },
 });
-

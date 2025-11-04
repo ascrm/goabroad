@@ -10,18 +10,18 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    Image,
+    KeyboardAvoidingView,
+    Platform,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 import { COLORS } from '@/src/constants';
@@ -29,9 +29,9 @@ import * as userApi from '@/src/services/api/modules/userApi';
 import { useAppDispatch, useAppSelector } from '@/src/store/hooks';
 import { selectAuthUserInfo } from '@/src/store/slices/authSlice';
 import {
-  selectUserInfo,
-  setUserInfo,
-  updateAvatar,
+    selectUserInfo,
+    setUserInfo,
+    updateAvatar,
 } from '@/src/store/slices/profileSlice';
 
 export default function EditProfile() {
@@ -131,13 +131,13 @@ export default function EditProfile() {
       const profileData = {
         nickname: nickname.trim(),
         bio: signature.trim(), // API 使用 bio 字段
-        gender: gender?.toUpperCase(), // API 可能需要大写
-        birthday: birthday?.toISOString().split('T')[0], // 格式: YYYY-MM-DD
+        gender: gender?.toUpperCase(), // API 要求大写：MALE, FEMALE, OTHER, PREFER_NOT_TO_SAY
+        birthDate: birthday?.toISOString().split('T')[0], // API 字段名为 birthDate，格式: YYYY-MM-DD
         location: location.trim(),
       };
 
       // 调用 API 更新资料
-      const response = await userApi.updateUserProfile(profileData);
+      await userApi.updateUserProfile(profileData);
 
       // 3. 更新本地 Redux 状态
       const updatedUserInfo = {

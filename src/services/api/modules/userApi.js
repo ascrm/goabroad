@@ -28,6 +28,8 @@ export const getUserProfile = async (userId) => {
  * @param {string} [profileData.nickname] - 昵称
  * @param {string} [profileData.bio] - 个人简介
  * @param {string} [profileData.gender] - 性别 (MALE, FEMALE, OTHER, PREFER_NOT_TO_SAY)
+ * @param {string} [profileData.birthDate] - 生日 (格式: YYYY-MM-DD)
+ * @param {string} [profileData.location] - 所在地
  * @returns {Promise<Object>} 更新后的用户资料
  * @note targetCountry、targetType等字段已移除，需使用单独的user_preferences接口更新
  */
