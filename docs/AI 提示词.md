@@ -1,86 +1,166 @@
-基于你的需求和提供的参考文件，我将其转化为以下AI提示词：
+我来帮你检查项目中未被引用的文件和无用文件。让我系统地分析一下。
 
----
+[44 tools called]
 
-## 社区页面开发提示词
+根据我对整个项目的系统检查，我发现了以下**未被引用或无用的文件**：
 
-### 页面概述
-需要开发一个社交媒体风格的社区页面（`app/(tabs)/community.jsx`），参考Twitter/X的信息流设计。
+## 📋 检查结果总结
 
-### 1. 顶部导航栏设计
-- **结构参考**：`HomeNavigationBar.jsx`的顶部固定栏结构
-- **左侧**：用户头像按钮（点击可打开侧边抽屉菜单）
-  - 使用Avatar组件，尺寸为"md"
-  - 从Redux store获取用户信息（useAuth hook）
-- **中间**：显示"社区"文字标题
-  - 字体大小24px，粗体（fontWeight: 700）
-  - 颜色使用COLORS.gray[900]，纯黑色文字
-  - 不需要双色Logo效果，只需简单文字
-- **右侧**：不需要搜索按钮，留空或放置对称占位元素
-- **样式**：白色背景，底部边框（borderBottomColor: COLORS.gray[100]）
-- **高度**：与HomeNavigationBar保持一致
+### ❌ 完全未被使用的文件
 
-### 2. 分类导航栏（Tab栏）
-- **Tab项**：仅包含两个选项
-  - "为你推荐"（id: 'recommend'）
-  - "正在关注"（id: 'following'）
-- **样式要求**：完全复用HomeNavigationBar的Tab栏样式
-  - 水平滚动ScrollView（虽然只有两项）
-  - Tab高度48px
-  - 激活状态：文字加粗（fontWeight: 700），深色（COLORS.gray[900]）
-  - 未激活状态：普通粗细（fontWeight: 500），灰色（COLORS.gray[600]）
-  - 底部指示器：蓝色条（COLORS.primary[600]），高度3px，圆角2px
-- **交互**：使用本地state管理activeTab状态，默认为'recommend'
+1. **`src/components/home/UnifiedFeed.jsx`**
+   - 在 `src/components/home/index.js` 中导出
+   - 但在整个项目中没有任何地方实际引用
+   - 状态：可以删除
 
-### 3. 内容信息流设计（参考Twitter/X）
-- **容器**：使用FlatList实现无限滚动列表
-- **单个帖子卡片组件结构**：
-  - **头部区域**：
-    - 左侧：用户圆形头像（Avatar组件）
-    - 中间：用户昵称、认证标识（如果有）、发布时间
-    - 右侧：更多操作按钮（三个点）
-  - **内容区域**：
-    - 正文文本：支持多行，可展开/收起长文本
-    - 媒体内容：图片网格展示（1-4张图片的不同布局）
-  - **底部交互栏**：
-    - 评论数量和图标
-    - 转发数量和图标  
-    - 点赞数量和图标
-    - 浏览数量和图标
-    - 分享/书签图标
-  - **间距和分隔**：每个帖子之间有细分隔线或留白
+2. **`src/components/home/QuickToolsGrid.jsx`** 和 **`src/components/home/QuickTools.jsx`**
+   - 在 `src/components/home/index.js` 中导出
+   - 但在整个项目中没有任何地方实际引用（除了 README.md 文档）
+   - 状态：可以删除
 
-### 4. 技术实现要点
-- **状态管理**：使用useState管理activeTab和帖子列表数据
-- **模拟数据**：初期使用mock数据填充帖子列表，包含用户信息、正文、图片URL等
-- **图片展示**：
-  - 单图：宽度占满，高度自适应
-  - 多图：网格布局（2x2或其他合理布局）
-  - 使用React Native的Image组件，设置合适的resizeMode
-- **性能优化**：FlatList使用keyExtractor、renderItem，考虑添加分页加载
-- **响应式布局**：适配不同屏幕尺寸
+3. **`src/components/home/DailyCheckIn.jsx`**
+   - 在 `src/components/home/index.js` 中导出
+   - 但在整个项目中没有任何地方实际引用
+   - 状态：可以删除
 
-### 5. 样式规范
-- **主题色**：使用项目constants中的COLORS配置
-- **背景色**：页面背景COLORS.gray[50]，卡片背景白色
-- **文字层次**：
-  - 用户名：fontWeight 600-700，COLORS.gray[900]
-  - 正文：fontWeight 400，COLORS.gray[800]
-  - 次要信息（时间、数量）：fontSize较小，COLORS.gray[500]
-- **图标**：使用@expo/vector-icons的Ionicons
-- **卡片阴影**：参考项目shadows.js配置（如果需要）
+4. **`src/components/home/EmptyPlanCard.jsx`**
+   - 在 `src/components/home/index.js` 中导出
+   - 但在整个项目中没有任何地方实际引用
+   - 状态：可以删除
 
-### 6. 导航和交互
-- **头像点击**：打开侧边抽屉菜单
-- **Tab切换**：切换信息流内容
-- **帖子点击**：导航到帖子详情页（后续实现）
-- **交互按钮**：添加适当的activeOpacity和触摸反馈
+5. **`src/components/home/InterestTags.jsx`**
+   - 在 `src/components/home/index.js` 中导出
+   - 但在整个项目中没有任何地方实际引用
+   - 状态：可以删除
 
-### 7. 组件拆分建议
-- 创建独立的`PostCard`组件用于单个帖子展示
-- 创建`CommunityNavigationBar`组件用于顶部导航
-- 主页面作为容器组合这些组件
+6. **`src/components/country/AdvancedFilters.jsx`**
+   - 在 `src/components/country/index.js` 中导出
+   - 但在整个项目中没有任何地方实际引用
+   - 状态：可以删除
 
----
+7. **`src/components/country/CompareMode.jsx`**
+   - 在 `src/components/country/index.js` 中导出
+   - 但在整个项目中没有任何地方实际引用
+   - 状态：可以删除
 
-这个提示词涵盖了UI结构、样式细节、交互逻辑和技术实现方案，AI应该能够根据此提示词完成代码开发。
+8. **`src/components/country/CompareResult.jsx`**
+   - 在 `src/components/country/index.js` 中导出
+   - 但在整个项目中没有任何地方实际引用
+   - 状态：可以删除
+
+9. **`src/components/country/MapView.jsx`**
+   - 在 `src/components/country/index.js` 中导出
+   - 但在整个项目中没有任何地方实际引用
+   - 状态：可以删除
+
+10. **`src/components/planning/CalendarView.jsx`**
+    - 在 `src/components/planning/index.js` 中导出
+    - 在 `app/planning/[id].jsx` 中没有被实际使用
+    - 状态：可以删除
+
+11. **`src/components/planning/KanbanView.jsx`**
+    - 在 `src/components/planning/index.js` 中导出
+    - 在 `app/planning/[id].jsx` 中没有被实际使用
+    - 状态：可以删除
+
+12. **`src/components/planning/ViewSwitcher.jsx`**
+    - 在 `src/components/planning/index.js` 中导出
+    - 在整个项目中没有任何地方实际引用
+    - 状态：可以删除
+
+13. **`src/components/profile/UserHeader.jsx`**
+    - 创建了但没有在任何地方被引用
+    - 状态：可以删除
+
+14. **`src/examples/UserApiExample.jsx`**
+    - 示例文件，没有在项目中被引用
+    - 状态：可以删除（或保留作为文档）
+
+15. **`src/utils/mockProfileData.js`**
+    - Mock数据文件，没有在项目中被引用
+    - 状态：可以删除
+
+16. **`app/community/answer/question-list.jsx`**
+    - 从git status看是新增的未追踪文件
+    - 但只在 `CreatePostModal` 中被引用了一次，需要确认是否真正使用
+    - 状态：可能需要集成到导航中，或删除
+
+### ⚠️ 未在index.js中导出但被使用的组件
+
+以下组件没有在 `src/components/community/index.js` 中导出，但在项目中被直接引用：
+
+1. **Community组件** (未导出但被使用):
+   - `PostDetail.jsx` - 在 `app/community/post/[id].jsx` 中使用
+   - `CommentList.jsx` - 在 `PostDetail.jsx` 中使用
+   - `CommentInput.jsx` - 在 `PostDetail.jsx` 中使用
+   - `CommentItem.jsx` - 在 `CommentList.jsx` 中使用
+   - `FeedList.jsx` - 在多个地方使用
+   - `ImageViewer.jsx` - 在 `PostDetail.jsx` 中使用
+   - `VideoCard.jsx` - 在 `app/profile/edit.jsx` 等地方使用
+   - `TopicTag.jsx` - 在多个地方使用
+   - `TrendingTopics.jsx` - 在多个地方使用
+   - `UserProfile.jsx` - 在 `app/profile/user/[id].jsx` 中使用
+   - `CategorySelector.jsx` - 在多个地方使用
+   - `EmojiPicker.jsx` - 在 `app/community/post/create.jsx` 中使用
+
+   **建议**：这些组件应该被添加到 `src/components/community/index.js` 中统一导出
+
+### ✅ 正常使用的组件
+
+以下组件正在正常使用中：
+- `HomeNavigationBar` - 在首页使用
+- `RecommendFeed` - 在首页使用
+- `LatestGuides` - 在首页使用
+- `CommunityNavigationBar` - 在社区页使用
+- `PostCard` - 在社区页使用
+- `CountryCard`, `CountryFilters` - 在国家列表页使用
+- 搜索组件 - 在搜索页使用
+- 规划组件 - 在规划详情页使用
+- Layout组件 - 在tabs布局中使用
+
+### 🗑️ 已删除但Git中标记为删除的文件
+
+从git status看，以下文件已被删除（正确操作）：
+- `app/(main)/_layout.jsx`
+- `app/(main)/home.jsx`
+- `src/components/layout/TopNavigationBar.jsx`
+- `app/community/README.md`
+
+## 💡 清理建议
+
+**立即可以删除的文件（16个）：**
+```bash
+# Home组件
+src/components/home/UnifiedFeed.jsx
+src/components/home/QuickToolsGrid.jsx
+src/components/home/QuickTools.jsx
+src/components/home/DailyCheckIn.jsx
+src/components/home/EmptyPlanCard.jsx
+src/components/home/InterestTags.jsx
+
+# Country组件
+src/components/country/AdvancedFilters.jsx
+src/components/country/CompareMode.jsx
+src/components/country/CompareResult.jsx
+src/components/country/MapView.jsx
+
+# Planning组件
+src/components/planning/CalendarView.jsx
+src/components/planning/KanbanView.jsx
+src/components/planning/ViewSwitcher.jsx
+
+# Profile组件
+src/components/profile/UserHeader.jsx
+
+# Utils和Examples
+src/utils/mockProfileData.js
+src/examples/UserApiExample.jsx
+```
+
+**需要更新的导出文件：**
+- `src/components/home/index.js` - 移除未使用组件的导出
+- `src/components/country/index.js` - 移除未使用组件的导出
+- `src/components/planning/index.js` - 移除未使用组件的导出
+- `src/components/community/index.js` - 添加实际使用的组件导出
+
+删除这些文件可以减少项目体积，提高维护性。建议在删除前确认这些组件确实不会在未来使用。
