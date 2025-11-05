@@ -27,7 +27,6 @@ import {
 
 import CategoryPicker from '@/src/components/community/create/CategoryPicker';
 import EmojiPicker from '@/src/components/community/create/EmojiPicker';
-import TagInput from '@/src/components/community/create/TagInput';
 import EditorToolbar from '@/src/components/tools/EditorToolbar';
 import { Avatar } from '@/src/components/ui';
 import { COLORS } from '@/src/constants';
@@ -46,11 +45,8 @@ export default function CreatePost() {
   // 状态管理 - 简化
   const [content, setContent] = useState('');
   const [images, setImages] = useState([]);
-  const [video, setVideo] = useState(null);
   const [category, setCategory] = useState(null); // 可选
-  const [tags, setTags] = useState([]); // 可选
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
-  const [showTagInput, setShowTagInput] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
@@ -62,13 +58,13 @@ export default function CreatePost() {
 
   // 自动保存草稿
   useEffect(() => {
-    if (content || images.length > 0 || video) {
+    if (content || images.length > 0) {
       const timer = setTimeout(() => {
         saveDraft();
       }, 2000);
       return () => clearTimeout(timer);
     }
-  }, [content, images, video, category, tags]);
+  }, [content, images, category]);
 
   // 自动聚焦
   useEffect(() => {
@@ -120,9 +116,7 @@ export default function CreatePost() {
             onPress: () => {
               setContent(data.content || '');
               setImages(data.images || []);
-              setVideo(data.video || null);
               setCategory(data.category || null);
-              setTags(data.tags || []);
             },
           },
         ]);
@@ -139,9 +133,7 @@ export default function CreatePost() {
       const draft = {
         content,
         images,
-        video,
         category,
-        tags,
         savedAt: new Date().toISOString(),
       };
       await AsyncStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
@@ -229,11 +221,8 @@ export default function CreatePost() {
       // 2. 发布帖子
       console.log('📤 [发布流程] 步骤 2/2: 发布帖子');
 
-      // 合并图片和视频到 mediaUrls，并过滤掉 null/undefined 值
-      const mediaUrls = [
-        ...imageUrls,
-        ...(video ? [video.url || video.uri] : [])
-      ].filter(Boolean); // 过滤掉 null/undefined/空字符串
+      // 使用上传后的图片 URLs
+      const mediaUrls = imageUrls.filter(Boolean); // 过滤掉 null/undefined/空字符串
 
       console.log('📤 [发布帖子] mediaUrls:', mediaUrls);
 
@@ -242,7 +231,7 @@ export default function CreatePost() {
         content: content.trim(),
         status: 'PUBLISHED',
         mediaUrls: mediaUrls.length > 0 ? mediaUrls : undefined, // 如果没有媒体文件，不发送该字段
-        category: category || tags[0], // 新API：使用 category 替代 tags，取第一个tag作为分类
+        category: category, // 新API：使用 category 替代 tags
         coverImage: imageUrls.length > 0 ? imageUrls[0] : null, // 使用第一张图片作为封面
         allowComment: true, // 新API：是否允许评论
       };
@@ -298,7 +287,7 @@ export default function CreatePost() {
 
   // 取消发布
   const handleCancel = () => {
-    if (content || images.length > 0 || video) {
+    if (content || images.length > 0) {
       Alert.alert('提示', '是否放弃当前编辑的内容？', [
         { text: '继续编辑', style: 'cancel' },
         {
@@ -315,11 +304,6 @@ export default function CreatePost() {
   // 智能发布按钮
   const canPublish = () => {
     return !isPublishing && content.trim().length > 0;
-  };
-
-  // 移除标签
-  const removeTag = (tag) => {
-    setTags(tags.filter((t) => t !== tag));
   };
 
   // ========== 媒体上传功能 ==========
@@ -369,65 +353,9 @@ export default function CreatePost() {
     }
   };
 
-  // 录制视频
-  const handleRecordVideo = async () => {
-    const hasPermission = await requestPermissions();
-    if (!hasPermission) return;
-
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-      allowsEditing: true,
-      quality: 0.8,
-      videoMaxDuration: 60, // 限制60秒
-    });
-
-    if (!result.canceled && result.assets?.[0]) {
-      if (video) {
-        Alert.alert('提示', '只能上传一个视频，是否替换当前视频？', [
-          { text: '取消', style: 'cancel' },
-          { text: '替换', onPress: () => setVideo({ uri: result.assets[0].uri }) },
-        ]);
-      } else {
-        setVideo({ uri: result.assets[0].uri });
-        // 如果添加了视频，清空图片
-        setImages([]);
-      }
-    }
-  };
-
-  // 从相册选择视频
-  const handlePickVideo = async () => {
-    const hasPermission = await requestPermissions();
-    if (!hasPermission) return;
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-      allowsEditing: true,
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets?.[0]) {
-      if (video) {
-        Alert.alert('提示', '只能上传一个视频，是否替换当前视频？', [
-          { text: '取消', style: 'cancel' },
-          { text: '替换', onPress: () => setVideo({ uri: result.assets[0].uri }) },
-        ]);
-      } else {
-        setVideo({ uri: result.assets[0].uri });
-        // 如果添加了视频，清空图片
-        setImages([]);
-      }
-    }
-  };
-
   // 移除图片
   const removeImage = (index) => {
     setImages(images.filter((_, i) => i !== index));
-  };
-
-  // 移除视频
-  const removeVideo = () => {
-    setVideo(null);
   };
 
   return (
@@ -440,8 +368,10 @@ export default function CreatePost() {
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={handleCancel} hitSlop={12}>
-            <Text style={styles.cancelText}>取消</Text>
+            <Ionicons name="chevron-back" size={24} color={COLORS.gray[700]} />
           </TouchableOpacity>
+
+          <Text style={styles.headerTitle}>动态</Text>
 
           <TouchableOpacity
             style={[styles.publishBtn, !canPublish() && styles.publishBtnDisabled]}
@@ -539,25 +469,6 @@ export default function CreatePost() {
                   )}
                 </View>
               )}
-
-              {/* 视频预览 */}
-              {video && (
-                <View style={styles.mediaPreviewContainer}>
-                  <View style={styles.videoContainer}>
-                    <View style={styles.videoPreview}>
-                      <Ionicons name="play-circle" size={48} color={COLORS.white} />
-                      <Text style={styles.videoText}>视频</Text>
-                    </View>
-                    <TouchableOpacity
-                      style={styles.removeMediaBtn}
-                      onPress={removeVideo}
-                      hitSlop={8}
-                    >
-                      <Ionicons name="close-circle" size={24} color="rgba(0,0,0,0.6)" />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              )}
             </View>
           </View>
 
@@ -575,28 +486,16 @@ export default function CreatePost() {
           </View>
 
           {/* 已选信息标签 */}
-          {(category || tags.length > 0) && (
+          {category && (
             <View style={styles.selectedInfo}>
-              {category && (
-                <TouchableOpacity
-                  style={styles.chip}
-                  onPress={() => setCategory(null)}
-                >
-                  <Ionicons name="grid" size={12} color={COLORS.primary[600]} />
-                  <Text style={styles.chipText}>{category}</Text>
-                  <Ionicons name="close" size={14} color={COLORS.primary[600]} />
-                </TouchableOpacity>
-              )}
-              {tags.map((tag) => (
-                <TouchableOpacity
-                  key={tag}
-                  style={styles.chip}
-                  onPress={() => removeTag(tag)}
-                >
-                  <Text style={styles.chipText}>#{tag}</Text>
-                  <Ionicons name="close" size={14} color={COLORS.primary[600]} />
-                </TouchableOpacity>
-              ))}
+              <TouchableOpacity
+                style={styles.chip}
+                onPress={() => setCategory(null)}
+              >
+                <Ionicons name="grid" size={12} color={COLORS.primary[600]} />
+                <Text style={styles.chipText}>{category}</Text>
+                <Ionicons name="close" size={14} color={COLORS.primary[600]} />
+              </TouchableOpacity>
             </View>
           )}
 
@@ -612,18 +511,16 @@ export default function CreatePost() {
         {/* 底部工具栏 */}
         <EditorToolbar
           config={{
-            showImage: !video,
-            showCamera: !video,
-            showVideo: images.length === 0,
+            showImage: true,
+            showCamera: true,
+            showVideo: false,
             showMention: false,
-            showTag: true,
+            showTag: false,
             showLocation: false,
             showEmoji: true,
           }}
           onPickImages={handlePickImages}
           onTakePhoto={handleTakePhoto}
-          onPickVideo={handlePickVideo}
-          onAddTag={() => setShowTagInput(!showTagInput)}
           onAddEmoji={() => {
             if (showEmojiPicker) {
               // 如果表情面板已显示，则关闭它并重新聚焦输入框
@@ -639,19 +536,6 @@ export default function CreatePost() {
           }}
           isSaving={isSavingDraft}
         />
-
-        {/* 标签输入（展开式） */}
-        {showTagInput && (
-          <View style={styles.tagInputContainer}>
-            <View style={styles.tagInputHeader}>
-              <Text style={styles.tagInputTitle}>添加标签</Text>
-              <TouchableOpacity onPress={() => setShowTagInput(false)}>
-                <Ionicons name="close" size={24} color={COLORS.gray[600]} />
-              </TouchableOpacity>
-            </View>
-            <TagInput tags={tags} onTagsChange={setTags} maxTags={5} />
-          </View>
-        )}
 
         {/* 分区选择器 Modal */}
         {showCategoryPicker && (
@@ -694,27 +578,28 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: 1,
     borderBottomColor: COLORS.gray[200],
   },
-  cancelText: {
-    fontSize: 16,
+  headerTitle: {
+    fontSize: 17,
+    fontWeight: '600',
     color: COLORS.gray[900],
   },
   publishBtn: {
-    paddingHorizontal: 24,
-    paddingVertical: 10,
-    backgroundColor: '#00A6F0',
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    backgroundColor: '#0284C7',
     borderRadius: 20,
-    minWidth: 70,
+    minWidth: 60,
     alignItems: 'center',
   },
   publishBtnDisabled: {
     backgroundColor: COLORS.gray[300],
-    opacity: 0.5,
+    opacity: 0.6,
   },
   publishText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     color: COLORS.white,
   },
@@ -774,27 +659,6 @@ const styles = StyleSheet.create({
   multiImage: {
     width: '100%',
     height: '100%',
-  },
-  
-  // 视频预览
-  videoContainer: {
-    position: 'relative',
-    width: '100%',
-    aspectRatio: 16/9,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  videoPreview: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: COLORS.gray[800],
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  videoText: {
-    fontSize: 13,
-    color: COLORS.white,
-    marginTop: 8,
   },
   
   // 删除按钮

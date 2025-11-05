@@ -118,7 +118,40 @@ const PostCard = ({ post }) => {
   );
 };
 
-const RecommendFeed = () => {
+const RecommendFeed = ({ activeTab = 'recommend' }) => {
+  // 根据activeTab过滤内容（这里仅作演示，实际应该从API获取）
+  const getFilteredPosts = () => {
+    // 如果是推荐Tab，显示所有内容
+    if (activeTab === 'recommend') {
+      return MOCK_POSTS;
+    }
+    
+    // 根据不同分类过滤（这里仅作演示逻辑）
+    const filterMap = {
+      study: ['美国留学', '英国留学', '日本留学'],
+      work: ['工作签证', '求职'],
+      visa: ['F1签证', '签证'],
+      life: ['生活费用', '生活'],
+      guide: ['攻略'],
+    };
+
+    const keywords = filterMap[activeTab] || [];
+    if (keywords.length === 0) return MOCK_POSTS;
+
+    // 根据标签和标题关键词过滤
+    return MOCK_POSTS.filter((post) => {
+      const titleMatch = keywords.some((keyword) =>
+        post.title.includes(keyword)
+      );
+      const tagMatch = post.tags.some((tag) =>
+        keywords.some((keyword) => tag.includes(keyword))
+      );
+      return titleMatch || tagMatch;
+    });
+  };
+
+  const filteredPosts = getFilteredPosts();
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -133,9 +166,13 @@ const RecommendFeed = () => {
       </View>
 
       <View style={styles.postsContainer}>
-        {MOCK_POSTS.map((post) => (
-          <PostCard key={post.id} post={post} />
-        ))}
+        {filteredPosts.length > 0 ? (
+          filteredPosts.map((post) => <PostCard key={post.id} post={post} />)
+        ) : (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>暂无相关内容</Text>
+          </View>
+        )}
       </View>
     </View>
   );
@@ -253,6 +290,15 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: COLORS.gray[600],
     marginLeft: 4,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 48,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: COLORS.gray[400],
   },
 });
 

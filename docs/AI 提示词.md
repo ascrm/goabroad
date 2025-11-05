@@ -1,281 +1,86 @@
-我理解了，你想让 `app/community/post/create.jsx`（发帖页面）的底部工具栏功能和逻辑与 `app/community/question/create.jsx`（提问页面）保持一致，除了表情功能保持现状。
+基于你的需求和提供的参考文件，我将其转化为以下AI提示词：
 
-让我先查看一下这两个文件的差异，然后给你提供修改方案。
+---
 
-[2 tools called]
+## 社区页面开发提示词
 
-好的，我现在明白了两个文件的差异。`create.jsx`（提问页面）使用了 `ImagePicker` 直接实现图片和视频选择功能，而 `post/create.jsx`（发帖页面）目前使用的是封装好的 `MediaPicker` 组件，但功能不完整。
+### 页面概述
+需要开发一个社交媒体风格的社区页面（`app/(tabs)/community.jsx`），参考Twitter/X的信息流设计。
 
-## 📋 修改方案：统一底部工具栏功能实现
+### 1. 顶部导航栏设计
+- **结构参考**：`HomeNavigationBar.jsx`的顶部固定栏结构
+- **左侧**：用户头像按钮（点击可打开侧边抽屉菜单）
+  - 使用Avatar组件，尺寸为"md"
+  - 从Redux store获取用户信息（useAuth hook）
+- **中间**：显示"社区"文字标题
+  - 字体大小24px，粗体（fontWeight: 700）
+  - 颜色使用COLORS.gray[900]，纯黑色文字
+  - 不需要双色Logo效果，只需简单文字
+- **右侧**：不需要搜索按钮，留空或放置对称占位元素
+- **样式**：白色背景，底部边框（borderBottomColor: COLORS.gray[100]）
+- **高度**：与HomeNavigationBar保持一致
 
-### 需要修改的内容
+### 2. 分类导航栏（Tab栏）
+- **Tab项**：仅包含两个选项
+  - "为你推荐"（id: 'recommend'）
+  - "正在关注"（id: 'following'）
+- **样式要求**：完全复用HomeNavigationBar的Tab栏样式
+  - 水平滚动ScrollView（虽然只有两项）
+  - Tab高度48px
+  - 激活状态：文字加粗（fontWeight: 700），深色（COLORS.gray[900]）
+  - 未激活状态：普通粗细（fontWeight: 500），灰色（COLORS.gray[600]）
+  - 底部指示器：蓝色条（COLORS.primary[600]），高度3px，圆角2px
+- **交互**：使用本地state管理activeTab状态，默认为'recommend'
 
-#### 1. **导入 ImagePicker 和相关依赖**
+### 3. 内容信息流设计（参考Twitter/X）
+- **容器**：使用FlatList实现无限滚动列表
+- **单个帖子卡片组件结构**：
+  - **头部区域**：
+    - 左侧：用户圆形头像（Avatar组件）
+    - 中间：用户昵称、认证标识（如果有）、发布时间
+    - 右侧：更多操作按钮（三个点）
+  - **内容区域**：
+    - 正文文本：支持多行，可展开/收起长文本
+    - 媒体内容：图片网格展示（1-4张图片的不同布局）
+  - **底部交互栏**：
+    - 评论数量和图标
+    - 转发数量和图标  
+    - 点赞数量和图标
+    - 浏览数量和图标
+    - 分享/书签图标
+  - **间距和分隔**：每个帖子之间有细分隔线或留白
 
-在 `app/community/post/create.jsx` 文件顶部添加：
+### 4. 技术实现要点
+- **状态管理**：使用useState管理activeTab和帖子列表数据
+- **模拟数据**：初期使用mock数据填充帖子列表，包含用户信息、正文、图片URL等
+- **图片展示**：
+  - 单图：宽度占满，高度自适应
+  - 多图：网格布局（2x2或其他合理布局）
+  - 使用React Native的Image组件，设置合适的resizeMode
+- **性能优化**：FlatList使用keyExtractor、renderItem，考虑添加分页加载
+- **响应式布局**：适配不同屏幕尺寸
 
-```javascript
-import * as ImagePicker from 'expo-image-picker';
-```
+### 5. 样式规范
+- **主题色**：使用项目constants中的COLORS配置
+- **背景色**：页面背景COLORS.gray[50]，卡片背景白色
+- **文字层次**：
+  - 用户名：fontWeight 600-700，COLORS.gray[900]
+  - 正文：fontWeight 400，COLORS.gray[800]
+  - 次要信息（时间、数量）：fontSize较小，COLORS.gray[500]
+- **图标**：使用@expo/vector-icons的Ionicons
+- **卡片阴影**：参考项目shadows.js配置（如果需要）
 
-#### 2. **添加权限请求函数**
+### 6. 导航和交互
+- **头像点击**：打开侧边抽屉菜单
+- **Tab切换**：切换信息流内容
+- **帖子点击**：导航到帖子详情页（后续实现）
+- **交互按钮**：添加适当的activeOpacity和触摸反馈
 
-在组件内部，`loadDraft` 函数之前添加：
+### 7. 组件拆分建议
+- 创建独立的`PostCard`组件用于单个帖子展示
+- 创建`CommunityNavigationBar`组件用于顶部导航
+- 主页面作为容器组合这些组件
 
-```javascript
-// 请求相机和相册权限
-const requestPermissions = async () => {
-  const cameraPermission = await ImagePicker.requestCameraPermissionsAsync();
-  const mediaPermission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-  
-  if (cameraPermission.status !== 'granted' || mediaPermission.status !== 'granted') {
-    Alert.alert('权限不足', '需要相机和相册权限才能上传图片或视频');
-    return false;
-  }
-  return true;
-};
-```
+---
 
-#### 3. **添加媒体处理函数**
-
-替换现有的简单 `removeImage` 和 `removeVideo` 函数，添加完整的媒体处理逻辑：
-
-```javascript
-// ========== 媒体上传功能 ==========
-
-// 拍照
-const handleTakePhoto = async () => {
-  const hasPermission = await requestPermissions();
-  if (!hasPermission) return;
-
-  const result = await ImagePicker.launchCameraAsync({
-    mediaTypes: ImagePicker.MediaTypeOptions.Images,
-    allowsEditing: true,
-    aspect: [4, 3],
-    quality: 0.8,
-  });
-
-  if (!result.canceled && result.assets?.[0]) {
-    if (images.length >= 9) {
-      Alert.alert('提示', '最多只能上传9张图片');
-      return;
-    }
-    setImages([...images, { uri: result.assets[0].uri }]);
-  }
-};
-
-// 从相册选择图片
-const handlePickImages = async () => {
-  const hasPermission = await requestPermissions();
-  if (!hasPermission) return;
-
-  const result = await ImagePicker.launchImageLibraryAsync({
-    mediaTypes: ImagePicker.MediaTypeOptions.Images,
-    allowsMultipleSelection: true,
-    quality: 0.8,
-  });
-
-  if (!result.canceled && result.assets) {
-    const newImages = result.assets.map(asset => ({ uri: asset.uri }));
-    const totalImages = [...images, ...newImages];
-    
-    if (totalImages.length > 9) {
-      Alert.alert('提示', `最多只能上传9张图片，已选择${totalImages.length}张`);
-      setImages(totalImages.slice(0, 9));
-    } else {
-      setImages(totalImages);
-    }
-  }
-};
-
-// 录制视频
-const handleRecordVideo = async () => {
-  const hasPermission = await requestPermissions();
-  if (!hasPermission) return;
-
-  const result = await ImagePicker.launchCameraAsync({
-    mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-    allowsEditing: true,
-    quality: 0.8,
-    videoMaxDuration: 60, // 限制60秒
-  });
-
-  if (!result.canceled && result.assets?.[0]) {
-    if (video) {
-      Alert.alert('提示', '只能上传一个视频，是否替换当前视频？', [
-        { text: '取消', style: 'cancel' },
-        { text: '替换', onPress: () => setVideo({ uri: result.assets[0].uri }) },
-      ]);
-    } else {
-      setVideo({ uri: result.assets[0].uri });
-      // 如果添加了视频，清空图片
-      setImages([]);
-    }
-  }
-};
-
-// 从相册选择视频
-const handlePickVideo = async () => {
-  const hasPermission = await requestPermissions();
-  if (!hasPermission) return;
-
-  const result = await ImagePicker.launchImageLibraryAsync({
-    mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-    allowsEditing: true,
-    quality: 0.8,
-  });
-
-  if (!result.canceled && result.assets?.[0]) {
-    if (video) {
-      Alert.alert('提示', '只能上传一个视频，是否替换当前视频？', [
-        { text: '取消', style: 'cancel' },
-        { text: '替换', onPress: () => setVideo({ uri: result.assets[0].uri }) },
-      ]);
-    } else {
-      setVideo({ uri: result.assets[0].uri });
-      // 如果添加了视频，清空图片
-      setImages([]);
-    }
-  }
-};
-
-// 删除图片
-const removeImage = (index) => {
-  setImages(images.filter((_, i) => i !== index));
-};
-
-// 删除视频
-const removeVideo = () => {
-  setVideo(null);
-};
-```
-
-#### 4. **修改 EditorToolbar 的回调函数**
-
-将现有的工具栏配置改为：
-
-```javascript
-<EditorToolbar
-  config={{
-    showImage: !video,
-    showCamera: !video,
-    showVideo: images.length === 0,
-    showMention: false,
-    showTag: true,
-    showLocation: false,
-    showEmoji: true,
-  }}
-  onPickImages={handlePickImages}
-  onTakePhoto={handleTakePhoto}
-  onPickVideo={handlePickVideo}
-  onAddTag={() => setShowTagInput(!showTagInput)}
-  onAddEmoji={() => {
-    if (showEmojiPicker) {
-      // 如果表情面板已显示，则关闭它并重新聚焦输入框
-      setShowEmojiPicker(false);
-      setTimeout(() => {
-        contentInputRef.current?.focus();
-      }, 100);
-    } else {
-      // 如果表情面板未显示，先关闭键盘，再显示表情面板
-      contentInputRef.current?.blur();
-      setShowEmojiPicker(true);
-    }
-  }}
-  isSaving={isSavingDraft}
-/>
-```
-
-#### 5. **移除旧的 MediaPicker 组件使用**
-
-删除以下代码块：
-
-```javascript
-// 删除这些
-{/* 图片选择器 Modal */}
-{showImagePicker && (
-  <MediaPicker
-    type="image"
-    images={images}
-    video={video}
-    onImagesChange={setImages}
-    onVideoChange={setVideo}
-    visible={showImagePicker}
-    onClose={() => setShowImagePicker(false)}
-  />
-)}
-
-{/* 视频选择器 Modal */}
-{showVideoPicker && (
-  <MediaPicker
-    type="video"
-    images={images}
-    video={video}
-    onImagesChange={setImages}
-    onVideoChange={setVideo}
-    visible={showVideoPicker}
-    onClose={() => setShowVideoPicker(false)}
-  />
-)}
-```
-
-同时删除相关的状态：
-
-```javascript
-// 删除这两个状态
-const [showImagePicker, setShowImagePicker] = useState(false);
-const [showVideoPicker, setShowVideoPicker] = useState(false);
-```
-
-#### 6. **移除 MediaPicker 的导入**
-
-在文件顶部，删除：
-
-```javascript
-import MediaPicker from '@/src/components/community/create/MediaPicker';  // 删除这行
-```
-
-#### 7. **修改图片预览部分**
-
-将图片预览中的 `images[0].uri` 改为统一的访问方式（因为现在 images 数组中的对象结构是 `{ uri: '...' }`）：
-
-确保所有图片显示的地方都使用 `image.uri`：
-
-```javascript
-{images.length === 1 ? (
-  <View style={styles.singleImageContainer}>
-    <Image 
-      source={{ uri: images[0].uri }} 
-      style={styles.singleImage}
-      resizeMode="cover"
-    />
-    {/* ... */}
-  </View>
-) : (
-  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.multiImageScroll}>
-    {images.map((image, index) => (
-      <View key={index} style={styles.multiImageItem}>
-        <Image 
-          source={{ uri: image.uri }} 
-          style={styles.multiImage}
-          resizeMode="cover"
-        />
-        {/* ... */}
-      </View>
-    ))}
-  </ScrollView>
-)}
-```
-
-### 总结
-
-这些修改将使 `app/community/post/create.jsx` 的图片、相机和视频功能与 `app/community/question/create.jsx` 完全一致：
-
-✅ 直接使用 `expo-image-picker` 而不是封装的 MediaPicker 组件  
-✅ 添加权限检查  
-✅ 支持拍照、选择图片、录制视频、选择视频  
-✅ 图片最多9张限制  
-✅ 视频和图片互斥（有视频时不能添加图片，反之亦然）  
-✅ 保留表情选择器的现有功能（键盘替换模式）  
-
-由于你处于 ask 模式，我无法直接修改文件。请切换到 agent 模式，我可以帮你应用这些更改。
+这个提示词涵盖了UI结构、样式细节、交互逻辑和技术实现方案，AI应该能够根据此提示词完成代码开发。

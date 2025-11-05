@@ -7,14 +7,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef } from 'react';
 import {
-  Animated,
-  Dimensions,
-  Modal,
-  Platform,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Animated,
+    Dimensions,
+    Modal,
+    Platform,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 import { COLORS } from '@/src/constants';
@@ -94,8 +94,8 @@ export default function CreatePostModal({ visible, onClose }) {
           router.push('/community/question/create');
           break;
         case 'answer':
-          // 跳转到写回答页面
-          router.push('/community/answer/create');
+          // 跳转到问题列表页
+          router.push('/community/answer/question-list');
           break;
         case 'article':
           // 跳转到写攻略页面
@@ -117,7 +117,7 @@ export default function CreatePostModal({ visible, onClose }) {
       id: 'post',
       icon: 'images',
       iconColor: COLORS.primary[600],
-      title: '发布动态',
+      title: '发动态',
       description: '分享图片、视频和你的生活',
       backgroundColor: COLORS.primary[50],
     },

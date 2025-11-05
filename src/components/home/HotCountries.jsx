@@ -4,12 +4,15 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import React from 'react';
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { COLORS } from '@/src/constants';
 
 const HotCountries = () => {
+  const router = useRouter();
+
   // 热门国家数据
   const hotCountries = [
     {

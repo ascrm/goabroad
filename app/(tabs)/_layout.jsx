@@ -1,19 +1,18 @@
 /**
  * Tabs Layout
- * 底部标签栏布局 - 带中间凸起规划按钮和全局抽屉
- * 全局顶部导航栏统一在这里管理
+ * 底部标签栏布局 - 带中间凸起发布按钮和全局抽屉
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { Tabs, usePathname, useRouter } from 'expo-router';
+import { Tabs } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { createContext, useContext, useState } from 'react';
-import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { CreatePostModal, DrawerGestureWrapper, DrawerMenu, TopNavigationBar } from '@/src/components/layout';
+import { CreatePostModal, DrawerGestureWrapper, DrawerMenu } from '@/src/components/layout';
 import { COLORS } from '@/src/constants';
-import { useAppDispatch, useAppSelector, useUserInfo } from '@/src/store/hooks';
+import { useAppDispatch, useAppSelector } from '@/src/store/hooks';
 import { closeCreatePostModal, openCreatePostModal } from '@/src/store/slices/uiSlice';
 
 // 创建抽屉上下文，用于在所有 tabs 中共享抽屉状态
@@ -25,13 +24,9 @@ const DrawerContext = createContext({
 export const useDrawer = () => useContext(DrawerContext);
 
 export default function TabsLayout() {
-  const router = useRouter();
-  const pathname = usePathname();
   const dispatch = useAppDispatch();
-  const userInfo = useUserInfo(); // 使用统一的 userInfo hook（优先使用 profile.userInfo）
   
   // 从 Redux 获取角标数据
-  const todoCount = useAppSelector((state) => state.planning.todoCount);
   const unreadCount = useAppSelector((state) => state.ui.unreadCount);
   const createPostModalVisible = useAppSelector((state) => state.ui.createPostModalVisible);
   
@@ -57,110 +52,12 @@ export default function TabsLayout() {
     dispatch(closeCreatePostModal());
   };
 
-  // 根据当前路由返回导航栏配置
-  const getNavBarConfig = () => {
-    // create-post 页面不显示导航栏（因为会立即跳转）
-    if (pathname === '/create-post') {
-      return { show: false };
-    }
-
-    // 默认配置
-    const config = {
-      show: true,
-      centerContent: null,
-      rightContent: null,
-    };
-
-    // 根据路径定制导航栏
-    switch (pathname) {
-      case '/':
-      case '/index':
-        // 首页：中间显示Logo或标题，右侧不显示通知按钮（已改为消息Tab）
-        config.centerContent = null; // 或者可以添加Logo
-        break;
-
-      case '/community':
-        // 社区页：中间显示标题，右侧显示搜索按钮
-        config.centerContent = (
-          <View style={styles.centerContent}>
-            <Text style={styles.pageTitle}>社区</Text>
-          </View>
-        );
-        config.rightContent = (
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={() => router.push('/search')}
-            accessibilityLabel="搜索"
-            accessibilityHint="搜索社区内容"
-          >
-            <Ionicons name="search" size={24} color={COLORS.gray[700]} />
-          </TouchableOpacity>
-        );
-        break;
-
-      case '/countries':
-        // 国家页：保持现有配置
-        config.centerContent = (
-          <View style={styles.centerContent}>
-            <Text style={styles.pageTitle}>国家</Text>
-          </View>
-        );
-        config.rightContent = (
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={() => router.push('/search')}
-            accessibilityLabel="搜索"
-            accessibilityHint="搜索国家信息"
-          >
-            <Ionicons name="search" size={24} color={COLORS.gray[700]} />
-          </TouchableOpacity>
-        );
-        break;
-
-      case '/messages':
-        // 消息页：中间显示标题，右侧显示设置/筛选按钮
-        config.centerContent = (
-          <View style={styles.centerContent}>
-            <Text style={styles.pageTitle}>消息</Text>
-          </View>
-        );
-        config.rightContent = (
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={() => console.log('打开消息设置')}
-            accessibilityLabel="设置"
-            accessibilityHint="消息设置和筛选"
-          >
-            <Ionicons name="options-outline" size={24} color={COLORS.gray[700]} />
-          </TouchableOpacity>
-        );
-        break;
-
-      default:
-        break;
-    }
-
-    return config;
-  };
-
-  const navBarConfig = getNavBarConfig();
-
   return (
     <DrawerContext.Provider value={{ openDrawer, closeDrawer }}>
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <StatusBar style="dark" />
         
         <DrawerGestureWrapper onSwipeOpen={openDrawer}>
-          {/* 全局顶部导航栏 */}
-          {navBarConfig.show && (
-            <TopNavigationBar
-              userInfo={userInfo}
-              onAvatarPress={openDrawer}
-              centerContent={navBarConfig.centerContent}
-              rightContent={navBarConfig.rightContent}
-            />
-          )}
-
           {/* Tabs 内容 */}
           <View style={styles.tabsContainer}>
             <Tabs
@@ -318,38 +215,6 @@ const styles = StyleSheet.create({
   },
   tabsContainer: {
     flex: 1,
-  },
-  centerContent: {
-    alignItems: 'center',
-  },
-  pageTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: COLORS.gray[900],
-  },
-  iconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  badge: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: COLORS.error[500],
-    borderRadius: 6,
-    minWidth: 12,
-    height: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  badgeDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: COLORS.white,
   },
   centerButtonContainer: {
     position: 'absolute',

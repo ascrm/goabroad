@@ -1,566 +1,372 @@
 /**
- * 帖子卡片组件
- * 显示帖子预览信息：作者、标签、内容、图片/视频、互动数据
+ * 社区帖子卡片组件
+ * 参考Twitter/X的帖子卡片设计
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import PropTypes from 'prop-types';
-import React, { useCallback } from 'react';
+import React, { useState } from 'react';
 import {
-    Image,
-    Pressable,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { useDispatch } from 'react-redux';
 
+import Avatar from '@/src/components/ui/Avatar';
 import { COLORS } from '@/src/constants';
-import { toggleFavoritePost, toggleFollowUser, toggleLikePost } from '@/src/store/slices/communitySlice';
-import { tagsStringToArray } from '@/src/utils/dataTransform';
-import { formatDistanceToNow } from 'date-fns';
-import { zhCN } from 'date-fns/locale';
-import TopicTag from './TopicTag';
 
-/**
- * 格式化数字显示（1.2k, 1.5w）
- */
-const formatCount = (count) => {
-  if (!count && count !== 0) return '0';
-  if (count >= 10000) {
-    return `${(count / 10000).toFixed(1)}w`;
-  }
-  if (count >= 1000) {
-    return `${(count / 1000).toFixed(1)}k`;
-  }
-  return count.toString();
-};
+const PostCard = ({ post, onPress }) => {
+  const [expanded, setExpanded] = useState(false);
+  
+  // 格式化时间
+  const formatTime = (date) => {
+    const now = new Date();
+    const postDate = new Date(date);
+    const diff = Math.floor((now - postDate) / 1000); // 秒
+    
+    if (diff < 60) return '刚刚';
+    if (diff < 3600) return `${Math.floor(diff / 60)}分钟前`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}小时前`;
+    if (diff < 604800) return `${Math.floor(diff / 86400)}天前`;
+    
+    return postDate.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
+  };
 
-/**
- * 格式化时间
- */
-const formatTime = (dateString) => {
-  try {
-    return formatDistanceToNow(new Date(dateString), {
-      addSuffix: true,
-      locale: zhCN,
-    });
-  } catch {
-    return '';
-  }
-};
+  // 格式化数字
+  const formatNumber = (num) => {
+    if (num >= 10000) {
+      return `${(num / 10000).toFixed(1)}万`;
+    }
+    if (num >= 1000) {
+      return `${(num / 1000).toFixed(1)}k`;
+    }
+    return num.toString();
+  };
 
-export default function PostCard({ post, onLongPress }) {
-  const router = useRouter();
-  const dispatch = useDispatch();
+  // 判断文本是否需要展开
+  const needExpand = post.content.length > 200;
+  const displayContent = needExpand && !expanded 
+    ? post.content.substring(0, 200) + '...' 
+    : post.content;
 
-  // 点击卡片 -> 进入详情
-  const handlePress = useCallback(() => {
-    router.push(`/community/post/${post.id}`);
-  }, [post.id, router]);
-
-  // 点击用户 -> 进入用户主页
-  const handleUserPress = useCallback((e) => {
-    e.stopPropagation();
-    // TODO: 实现用户主页导航
-    console.log('Navigate to user:', post.author.id);
-  }, [post.author.id]);
-
-  // 点击关注按钮
-  const handleFollowPress = useCallback((e) => {
-    e.stopPropagation();
-    dispatch(toggleFollowUser(post.author.id));
-  }, [dispatch, post.author.id]);
-
-  // 点赞
-  const handleLikePress = useCallback((e) => {
-    e.stopPropagation();
-    dispatch(toggleLikePost(post.id));
-  }, [dispatch, post.id]);
-
-  // 收藏
-  const handleFavoritePress = useCallback((e) => {
-    e.stopPropagation();
-    dispatch(toggleFavoritePost(post.id));
-  }, [dispatch, post.id]);
-
-  // 评论（跳转到详情页）
-  const handleCommentPress = useCallback((e) => {
-    e.stopPropagation();
-    router.push(`/community/post/${post.id}?focus=comment`);
-  }, [post.id, router]);
-
-  // 分享
-  const handleSharePress = useCallback((e) => {
-    e.stopPropagation();
-    // TODO: 实现分享功能
-    console.log('Share post:', post.id);
-  }, [post.id]);
-
-  // 渲染封面/多图
-  const renderMedia = () => {
+  // 渲染图片（横向滚动）
+  const renderImages = () => {
     if (!post.images || post.images.length === 0) return null;
 
-    if (post.type === 'video') {
-      // 视频帖子：显示封面 + 播放按钮
+    const imageCount = post.images.length;
+
+    // 单张图片：全宽显示
+    if (imageCount === 1) {
       return (
-        <View style={styles.mediaContainer}>
+        <View style={styles.imageContainer}>
           <Image
             source={{ uri: post.images[0] }}
-            style={styles.coverImage}
+            style={styles.singleImage}
             resizeMode="cover"
           />
-          <View style={styles.playButton}>
-            <Ionicons name="play-circle" size={48} color={COLORS.white} />
-          </View>
-          {post.videoDuration && (
-            <View style={styles.durationBadge}>
-              <Text style={styles.durationText}>{post.videoDuration}</Text>
+        </View>
+      );
+    }
+
+    // 多张图片：横向滚动
+    return (
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.imageScrollContainer}
+        contentContainerStyle={styles.imageScrollContent}
+        pagingEnabled={false}
+        decelerationRate="fast"
+        snapToInterval={280} // 图片宽度 + gap
+        nestedScrollEnabled={true}
+        onStartShouldSetResponder={() => true}
+        onMoveShouldSetResponder={() => true}
+      >
+        {post.images.map((img, index) => (
+          <TouchableOpacity
+            key={index}
+            activeOpacity={0.9}
+            onPress={(e) => {
+              e.stopPropagation();
+              // TODO: 打开图片查看器
+            }}
+          >
+            <View 
+              style={[
+                styles.scrollImageWrapper,
+                index === post.images.length - 1 && styles.lastImage,
+              ]}
+            >
+              <Image
+                source={{ uri: img }}
+                style={styles.scrollImage}
+                resizeMode="cover"
+              />
             </View>
-          )}
-        </View>
-      );
-    }
-
-    // 图片帖子
-    if (post.images.length === 1) {
-      return (
-        <Image
-          source={{ uri: post.images[0] }}
-          style={styles.singleImage}
-          resizeMode="cover"
-        />
-      );
-    }
-
-    // 多图（最多显示3张）
-    return (
-      <View style={styles.multiImageContainer}>
-        {post.images.slice(0, 3).map((img, index) => (
-          <View key={index} style={styles.multiImageWrapper}>
-            <Image
-              source={{ uri: img }}
-              style={styles.multiImage}
-              resizeMode="cover"
-            />
-            {index === 2 && post.images.length > 3 && (
-              <View style={styles.moreImagesOverlay}>
-                <Text style={styles.moreImagesText}>+{post.images.length - 3}</Text>
-              </View>
-            )}
-          </View>
+          </TouchableOpacity>
         ))}
-      </View>
+      </ScrollView>
     );
-  };
-
-  // 渲染标签（作者信息下方）
-  const renderTags = () => {
-    // 处理tags：如果是字符串，转为数组；如果是数组，直接使用
-    const tagsArray = typeof post.tags === 'string' 
-      ? tagsStringToArray(post.tags) 
-      : (Array.isArray(post.tags) ? post.tags : []);
-    
-    if (tagsArray.length === 0) return null;
-
-    return (
-      <View style={styles.tagsContainer}>
-        {tagsArray.slice(0, 3).map((tag, index) => (
-          <Text key={index} style={styles.tag}>
-            #{tag}
-          </Text>
-        ))}
-      </View>
-    );
-  };
-
-  // 渲染话题标签（内容区域）
-  const renderTopics = () => {
-    if (!post.topics || post.topics.length === 0) return null;
-
-    return (
-      <View style={styles.topicsContainer}>
-        {post.topics.slice(0, 2).map((topic, index) => (
-          <TopicTag key={index} topic={topic} size="small" />
-        ))}
-      </View>
-    );
-  };
-
-  // 渲染特殊标签（问答、精华）
-  const renderBadges = () => {
-    const badges = [];
-
-    if (post.type === 'question') {
-      badges.push(
-        <View key="question" style={[styles.badge, styles.questionBadge]}>
-          <Text style={styles.badgeText}>问答</Text>
-        </View>
-      );
-    }
-
-    if (post.isHighlighted) {
-      badges.push(
-        <View key="highlight" style={[styles.badge, styles.highlightBadge]}>
-          <Ionicons name="diamond" size={12} color={COLORS.warning[600]} />
-          <Text style={[styles.badgeText, styles.highlightText]}>精华</Text>
-        </View>
-      );
-    }
-
-    return badges.length > 0 ? <View style={styles.badgesContainer}>{badges}</View> : null;
   };
 
   return (
-    <Pressable
-      style={({ pressed }) => [
-        styles.card,
-        pressed && styles.cardPressed,
-      ]}
-      onPress={handlePress}
-      onLongPress={() => onLongPress?.(post)}
+    <TouchableOpacity 
+      style={styles.container} 
+      onPress={onPress}
+      activeOpacity={0.95}
     >
-      {/* 作者信息栏 */}
+      {/* 头部区域 */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.authorInfo}
-          onPress={handleUserPress}
-          activeOpacity={0.7}
-        >
-          <Image
-            source={{ uri: post.author.avatarUrl || post.author.avatar || 'https://via.placeholder.com/40' }}
-            style={styles.avatar}
-          />
-          <View style={styles.authorDetails}>
-            <Text style={styles.authorName}>{post.author.name}</Text>
-            {renderTags()}
-          </View>
-        </TouchableOpacity>
+        {/* 左侧：用户头像 */}
+        <Avatar
+          size="md"
+          source={post.author.avatar}
+          name={post.author.name}
+        />
 
-        {!post.author.isFollowing && (
-          <TouchableOpacity
-            style={styles.followButton}
-            onPress={handleFollowPress}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.followButtonText}>关注</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* 内容区 */}
-      <View style={styles.content}>
-        {renderBadges()}
-        
-        <Text style={styles.title} numberOfLines={2}>
-          {post.title}
-        </Text>
-
-        {post.summary && (
-          <Text style={styles.summary} numberOfLines={3}>
-            {post.summary}
-          </Text>
-        )}
-
-        {renderMedia()}
-        
-        {renderTopics()}
-      </View>
-
-      {/* 互动栏 */}
-      <View style={styles.footer}>
-        <View style={styles.stats}>
-          <TouchableOpacity
-            style={styles.statButton}
-            onPress={handleLikePress}
-            activeOpacity={0.7}
-          >
-            <Ionicons
-              name={post.isLiked ? 'heart' : 'heart-outline'}
-              size={20}
-              color={post.isLiked ? COLORS.error[500] : COLORS.text.tertiary}
-            />
-            <Text style={[styles.statText, post.isLiked && styles.likedText]}>
-              {formatCount(post.likeCount || 0)}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.statButton}
-            onPress={handleCommentPress}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="chatbubble-outline" size={20} color={COLORS.text.tertiary} />
-            <Text style={styles.statText}>{formatCount(post.commentCount || 0)}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.statButton}
-            onPress={handleFavoritePress}
-            activeOpacity={0.7}
-          >
-            <Ionicons
-              name={post.isFavorited ? 'star' : 'star-outline'}
-              size={20}
-              color={post.isFavorited ? COLORS.warning[500] : COLORS.text.tertiary}
-            />
-            {post.favoriteCount > 0 && (
-              <Text style={[styles.statText, post.isFavorited && styles.favoritedText]}>
-                {formatCount(post.favoriteCount)}
-              </Text>
+        {/* 中间：用户信息和时间 */}
+        <View style={styles.userInfo}>
+          <View style={styles.userNameRow}>
+            <Text style={styles.userName}>{post.author.name}</Text>
+            {post.author.verified && (
+              <Ionicons 
+                name="checkmark-circle" 
+                size={16} 
+                color={COLORS.primary[600]} 
+                style={styles.verifiedIcon}
+              />
             )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.statButton}
-            onPress={handleSharePress}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="share-outline" size={20} color={COLORS.text.tertiary} />
-          </TouchableOpacity>
+            <Text style={styles.postTime}>· {formatTime(post.createdAt)}</Text>
+          </View>
+          {post.author.description && (
+            <Text style={styles.userDesc} numberOfLines={1}>
+              {post.author.description}
+            </Text>
+          )}
         </View>
 
-        <Text style={styles.timeText}>{formatTime(post.createdAt)}</Text>
+        {/* 右侧：更多操作按钮 */}
+        <TouchableOpacity 
+          style={styles.moreButton}
+          onPress={(e) => {
+            e.stopPropagation();
+            // TODO: 显示操作菜单
+          }}
+        >
+          <Ionicons name="ellipsis-horizontal" size={20} color={COLORS.gray[500]} />
+        </TouchableOpacity>
       </View>
-    </Pressable>
-  );
-}
 
-PostCard.propTypes = {
-  post: PropTypes.shape({
-    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
-    title: PropTypes.string.isRequired,
-    summary: PropTypes.string,
-    type: PropTypes.oneOf(['normal', 'video', 'question']),
-    author: PropTypes.shape({
-      id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
-      name: PropTypes.string.isRequired,
-      avatar: PropTypes.string,
-      isFollowing: PropTypes.bool,
-    }).isRequired,
-    tags: PropTypes.arrayOf(PropTypes.string),
-    topics: PropTypes.arrayOf(PropTypes.string),
-    images: PropTypes.arrayOf(PropTypes.string),
-    videoDuration: PropTypes.string,
-    likeCount: PropTypes.number,
-    commentCount: PropTypes.number,
-    favoriteCount: PropTypes.number,
-    isLiked: PropTypes.bool,
-    isFavorited: PropTypes.bool,
-    isHighlighted: PropTypes.bool,
-    createdAt: PropTypes.string.isRequired,
-  }).isRequired,
-  onLongPress: PropTypes.func,
+      {/* 内容区域 */}
+      <View style={styles.content}>
+        <Text style={styles.contentText}>
+          {displayContent}
+        </Text>
+        {needExpand && (
+          <TouchableOpacity 
+            onPress={(e) => {
+              e.stopPropagation();
+              setExpanded(!expanded);
+            }}
+          >
+            <Text style={styles.expandButton}>
+              {expanded ? '收起' : '展开'}
+            </Text>
+          </TouchableOpacity>
+        )}
+
+        {/* 图片内容 */}
+        {renderImages()}
+      </View>
+
+      {/* 底部交互栏 */}
+      <View style={styles.actions}>
+        {/* 评论 */}
+        <TouchableOpacity 
+          style={styles.actionItem}
+          onPress={(e) => {
+            e.stopPropagation();
+            // TODO: 处理评论
+          }}
+        >
+          <Ionicons name="chatbubble-outline" size={18} color={COLORS.gray[500]} />
+          {post.commentCount > 0 && (
+            <Text style={styles.actionText}>{formatNumber(post.commentCount)}</Text>
+          )}
+        </TouchableOpacity>
+
+        {/* 转发 */}
+        <TouchableOpacity 
+          style={styles.actionItem}
+          onPress={(e) => {
+            e.stopPropagation();
+            // TODO: 处理转发
+          }}
+        >
+          <Ionicons name="repeat-outline" size={20} color={COLORS.gray[500]} />
+          {post.shareCount > 0 && (
+            <Text style={styles.actionText}>{formatNumber(post.shareCount)}</Text>
+          )}
+        </TouchableOpacity>
+
+        {/* 点赞 */}
+        <TouchableOpacity 
+          style={styles.actionItem}
+          onPress={(e) => {
+            e.stopPropagation();
+            // TODO: 处理点赞
+          }}
+        >
+          <Ionicons 
+            name={post.liked ? "heart" : "heart-outline"} 
+            size={18} 
+            color={post.liked ? COLORS.error[500] : COLORS.gray[500]} 
+          />
+          {post.likeCount > 0 && (
+            <Text style={[
+              styles.actionText,
+              post.liked && styles.actionTextLiked
+            ]}>
+              {formatNumber(post.likeCount)}
+            </Text>
+          )}
+        </TouchableOpacity>
+
+        {/* 浏览量 */}
+        <View style={styles.actionItem}>
+          <Ionicons name="eye-outline" size={18} color={COLORS.gray[500]} />
+          {post.viewCount > 0 && (
+            <Text style={styles.actionText}>{formatNumber(post.viewCount)}</Text>
+          )}
+        </View>
+
+        {/* 书签 */}
+        <TouchableOpacity 
+          style={styles.actionItem}
+          onPress={(e) => {
+            e.stopPropagation();
+            // TODO: 处理书签
+          }}
+        >
+          <Ionicons 
+            name={post.bookmarked ? "bookmark" : "bookmark-outline"} 
+            size={18} 
+            color={post.bookmarked ? COLORS.primary[600] : COLORS.gray[500]} 
+          />
+        </TouchableOpacity>
+      </View>
+    </TouchableOpacity>
+  );
 };
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: COLORS.white,
-    marginBottom: 8,
-    paddingVertical: 16,
+  container: {
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.gray[100],
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
-  cardPressed: {
-    backgroundColor: COLORS.gray[50],
-  },
+  // ===== 头部样式 =====
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    marginBottom: 12,
-  },
-  authorInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.gray[200],
-  },
-  authorDetails: {
-    marginLeft: 10,
-    flex: 1,
-  },
-  authorName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: COLORS.text.primary,
-    marginBottom: 2,
-  },
-  tagsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: 2,
-  },
-  tag: {
-    fontSize: 13,
-    color: COLORS.primary[600],
-    marginRight: 8,
-  },
-  topicsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginTop: 8,
-  },
-  followButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 16,
-    backgroundColor: COLORS.primary[500],
-  },
-  followButtonText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: COLORS.white,
-  },
-  content: {
-    paddingHorizontal: 16,
-  },
-  badgesContainer: {
-    flexDirection: 'row',
     marginBottom: 8,
   },
-  badge: {
+  userInfo: {
+    flex: 1,
+    marginLeft: 12,
+    justifyContent: 'center',
+  },
+  userNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 4,
-    marginRight: 8,
   },
-  questionBadge: {
-    backgroundColor: COLORS.info[50],
-  },
-  highlightBadge: {
-    backgroundColor: COLORS.warning[50],
-  },
-  badgeText: {
-    fontSize: 11,
+  userName: {
+    fontSize: 15,
     fontWeight: '600',
-    color: COLORS.info[600],
+    color: COLORS.gray[900],
   },
-  highlightText: {
-    color: COLORS.warning[600],
-    marginLeft: 2,
+  verifiedIcon: {
+    marginLeft: 4,
   },
-  title: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.text.primary,
-    lineHeight: 22,
-    marginBottom: 6,
-  },
-  summary: {
+  postTime: {
     fontSize: 14,
-    color: COLORS.text.secondary,
+    color: COLORS.gray[500],
+    marginLeft: 4,
+  },
+  userDesc: {
+    fontSize: 13,
+    color: COLORS.gray[600],
+    marginTop: 2,
+  },
+  moreButton: {
+    padding: 4,
+  },
+  // ===== 内容样式 =====
+  content: {
+    marginLeft: 52,
+  },
+  contentText: {
+    fontSize: 15,
     lineHeight: 20,
-    marginBottom: 12,
+    color: COLORS.gray[800],
+    marginBottom: 4,
   },
-  mediaContainer: {
-    position: 'relative',
-    width: '100%',
-    height: 200,
-    borderRadius: 12,
-    overflow: 'hidden',
-    backgroundColor: COLORS.gray[100],
+  expandButton: {
+    fontSize: 14,
+    color: COLORS.primary[600],
+    marginTop: 4,
+    marginBottom: 8,
   },
-  coverImage: {
-    width: '100%',
-    height: '100%',
-  },
-  playButton: {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    transform: [{ translateX: -24 }, { translateY: -24 }],
-  },
-  durationBadge: {
-    position: 'absolute',
-    bottom: 8,
-    right: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  durationText: {
-    fontSize: 11,
-    color: COLORS.white,
-    fontWeight: '600',
+  // ===== 图片样式 =====
+  imageContainer: {
+    marginTop: 12,
   },
   singleImage: {
     width: '100%',
-    height: 200,
-    borderRadius: 12,
-    backgroundColor: COLORS.gray[100],
+    height: 240,
+    borderRadius: 16,
   },
-  multiImageContainer: {
-    flexDirection: 'row',
-    marginHorizontal: -3,
-  },
-  multiImageWrapper: {
-    flex: 1,
-    marginHorizontal: 3,
-    position: 'relative',
-  },
-  multiImage: {
-    width: '100%',
-    height: 120,
-    borderRadius: 8,
-    backgroundColor: COLORS.gray[100],
-  },
-  moreImagesOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  moreImagesText: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: COLORS.white,
-  },
-  footer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
+  // 横向滚动图片样式
+  imageScrollContainer: {
     marginTop: 12,
   },
-  stats: {
+  imageScrollContent: {
+    paddingRight: 16, // 右侧留白
+  },
+  scrollImageWrapper: {
+    marginRight: 8,
+  },
+  lastImage: {
+    marginRight: 16, // 最后一张图片右侧留白
+  },
+  scrollImage: {
+    width: 272, // 约为屏幕宽度的75%
+    height: 200,
+    borderRadius: 16,
+  },
+  // ===== 交互栏样式 =====
+  actions: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginTop: 12,
+    marginLeft: 52,
+    gap: 32,
   },
-  statButton: {
+  actionItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginRight: 20,
+    gap: 6,
   },
-  statText: {
+  actionText: {
     fontSize: 13,
-    color: COLORS.text.tertiary,
-    marginLeft: 4,
+    color: COLORS.gray[500],
   },
-  likedText: {
+  actionTextLiked: {
     color: COLORS.error[500],
-  },
-  favoritedText: {
-    color: COLORS.warning[500],
-  },
-  timeText: {
-    fontSize: 13,
-    color: COLORS.text.tertiary,
   },
 });
 
+export default PostCard;

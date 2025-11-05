@@ -75,14 +75,6 @@ function RootNavigator() {
         }}
       />
 
-      {/* Main 主应用 */}
-      <Stack.Screen
-        name="(main)"
-        options={{
-          headerShown: false,
-        }}
-      />
-
       {/* Tabs 标签页 */}
       <Stack.Screen
         name="(tabs)"

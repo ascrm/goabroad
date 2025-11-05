@@ -332,14 +332,8 @@ export default function CreateQuestion() {
         allowComment: true, // 新API: 是否允许评论
       };
 
-      console.log('📤 [发布问题] 发布数据:', postData);
-
       const result = await dispatch(publishPost(postData)).unwrap();
-
-      console.log('✅ [发布问题] 发布成功:', result);
-
       await clearDraft();
-
       Alert.alert('发布成功', '你的问题已成功发布，等待社区回答！', [
         {
           text: '返回',
@@ -411,7 +405,7 @@ export default function CreateQuestion() {
             <Ionicons name="chevron-back" size={24} color={COLORS.gray[700]} />
           </TouchableOpacity>
 
-          <Text style={styles.headerTitle}>提问题</Text>
+          <Text style={styles.headerTitle}>问题</Text>
 
           <TouchableOpacity
             style={[styles.publishBtn, !canPublish() && styles.publishBtnDisabled]}

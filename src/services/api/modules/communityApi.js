@@ -2,28 +2,45 @@
  * GoAbroad 社区相关 API
  * 处理帖子、评论、点赞、收藏等
  * 
- * 注意：根据 2024-10-29 API文档更新
+ * 注意：根据 2024-11-05 API文档更新
  * - 所有ID为数字类型
- * - tags从数组改为逗号分隔字符串
+ * - tags为数组类型（如：["留学", "签证", "美国"]）
  * - 移除videos字段（posts表无此字段）
  * - 添加summary字段（用于列表展示）
  * - 评论移除images字段，添加replyToUserId
+ * - content字段为可选（QUESTION类型可以只有标题）
  */
 
 import apiClient from '../client';
 
 // ==================== 5.1 获取帖子列表 ====================
 /**
- * 获取帖子列表（支持筛选）
+ * 根据内容类型查询帖子列表
+ * 
  * @param {Object} params - 查询参数
- * @param {string} [params.tab] - Tab类型 (recommend, following, country, stage)
- * @param {string} [params.country] - 国家筛选 (US, UK, CA...)
- * @param {string} [params.stage] - 阶段筛选 (preparation, applying, waiting...)
- * @param {string} [params.type] - 内容类型 (POST, QUESTION, TIMELINE, VLOG)
- * @param {string} [params.sort] - 排序方式 (latest, hot, recommended)
- * @param {number} [params.page=1] - 页码
- * @param {number} [params.pageSize=20] - 每页数量
- * @returns {Promise<Object>} 帖子列表
+ * @param {string} params.contentType - 内容类型 (TREND, QUESTION, ANSWER, GUIDE) - 必填
+ * @param {number} [params.page=0] - 页码（从0开始），默认0
+ * @param {number} [params.size=20] - 每页数量，默认20
+ * @param {string} [params.sortBy='createdAt'] - 排序字段 (createdAt, viewCount, likeCount, commentCount, collectCount)
+ * @param {string} [params.direction='DESC'] - 排序方向 (ASC, DESC)
+ * 
+ * @returns {Promise<Object>} 帖子列表（Spring Data分页格式）
+ * 响应结构：
+ * {
+ *   code: 200,
+ *   message: "查询成功",
+ *   data: {
+ *     content: [...],           // 帖子列表
+ *     totalPages: 5,            // 总页数
+ *     totalElements: 96,        // 总记录数
+ *     size: 20,                 // 每页大小
+ *     number: 0,                // 当前页码
+ *     numberOfElements: 20,     // 当前页实际记录数
+ *     first: true,              // 是否第一页
+ *     last: false,              // 是否最后一页
+ *     empty: false              // 是否为空
+ *   }
+ * }
  */
 export const getPosts = async (params = {}) => {
   const response = await apiClient.get('/community/posts', { params });
@@ -47,12 +64,13 @@ export const getPostDetail = async (postId) => {
  * 
  * @param {Object} postData - 帖子数据
  * @param {string} postData.contentType - 内容类型 (TREND, QUESTION, ANSWER, GUIDE)
- * @param {string} postData.content - 内容（支持Markdown，必填）
+ * @param {string} [postData.content] - 内容（支持Markdown，可选）
  * @param {string} [postData.title] - 标题（QUESTION、GUIDE类型建议填写）
  * @param {string} [postData.summary] - 摘要（用于列表展示，不传则后端自动截取content前100字）
  * @param {string} [postData.category] - 分类标签（如：留学、签证、生活等）
  * @param {string} [postData.coverImage] - 封面图片URL
  * @param {Array<string>} [postData.mediaUrls] - 图片/视频URL数组（最多9张图片或1个视频）
+ * @param {Array<string>} [postData.tags] - 标签数组（如：["留学", "签证", "美国"]，最多10个标签）
  * @param {string} [postData.status='PUBLISHED'] - 发布状态 (DRAFT, PUBLISHED)
  * @param {boolean} [postData.allowComment=true] - 是否允许评论
  * @returns {Promise<Object>} 创建的帖子
@@ -66,7 +84,17 @@ export const createPost = async (postData) => {
 /**
  * 编辑已发布的帖子
  * @param {number} postId - 帖子 ID（数字类型）
- * @param {Object} postData - 更新的帖子数据
+ * @param {Object} postData - 更新的帖子数据（字段同创建帖子接口）
+ * @param {string} [postData.contentType] - 内容类型 (TREND, QUESTION, ANSWER, GUIDE)
+ * @param {string} [postData.content] - 内容（支持Markdown）
+ * @param {string} [postData.title] - 标题
+ * @param {string} [postData.summary] - 摘要
+ * @param {string} [postData.category] - 分类标签
+ * @param {string} [postData.coverImage] - 封面图片URL
+ * @param {Array<string>} [postData.mediaUrls] - 图片/视频URL数组
+ * @param {Array<string>} [postData.tags] - 标签数组
+ * @param {string} [postData.status] - 发布状态 (DRAFT, PUBLISHED)
+ * @param {boolean} [postData.allowComment] - 是否允许评论
  * @returns {Promise<Object>} 更新后的帖子
  */
 export const updatePost = async (postId, postData) => {

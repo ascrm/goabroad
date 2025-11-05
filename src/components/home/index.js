@@ -5,6 +5,7 @@
 export { default as DailyCheckIn } from './DailyCheckIn';
 export { default as EmptyPlanCard } from './EmptyPlanCard';
 export { default as GreetingHeader } from './GreetingHeader';
+export { default as HomeNavigationBar } from './HomeNavigationBar';
 export { default as HotCountries } from './HotCountries';
 export { default as InterestTags } from './InterestTags';
 export { default as LatestGuides } from './LatestGuides';

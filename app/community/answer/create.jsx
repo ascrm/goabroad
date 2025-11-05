@@ -5,25 +5,27 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    KeyboardAvoidingView,
-    Platform,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 import MediaPicker from '@/src/components/community/create/MediaPicker';
+import EditorToolbar from '@/src/components/tools/EditorToolbar';
 import { COLORS } from '@/src/constants';
 import { uploadPostImages } from '@/src/services/api/modules/uploadApi';
 import { useAppDispatch, useUserInfo } from '@/src/store/hooks';
@@ -186,13 +188,14 @@ export default function CreateAnswer() {
       console.log('📤 [发布流程] 步骤 2/2: 发布回答');
 
       const answerData = {
-        contentType: 'ANSWER', // 新API: ANSWER(写答案)
+        contentType: 'ANSWER', // 内容类型：ANSWER(写答案)
+        parentPostId: parseInt(questionId), // 父帖子ID（关联到问题帖子）
         content: content.trim(),
         status: 'PUBLISHED',
-        mediaUrls: imageUrls, // 新API: 使用mediaUrls替代images和videos
-        category: '问答', // 新API: 分类
-        allowComment: true, // 新API: 是否允许评论
-        // TODO: 后续需要关联到问题ID (parentId: questionId)
+        mediaUrls: imageUrls, // 媒体文件URL数组
+        category: '问答', // 分类
+        tags: [], // 标签数组（回答页面暂无标签功能）
+        allowComment: true, // 是否允许评论
       };
 
       console.log('📤 [发布回答] 发布数据:', answerData);
@@ -260,6 +263,65 @@ export default function CreateAnswer() {
     setImages(images.filter((_, i) => i !== index));
   };
 
+  // ========== 图片上传功能 ==========
+
+  // 请求权限
+  const requestPermissions = async () => {
+    const { status: cameraStatus } = await ImagePicker.requestCameraPermissionsAsync();
+    const { status: libraryStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (cameraStatus !== 'granted' || libraryStatus !== 'granted') {
+      Alert.alert('需要权限', '请在设置中允许访问相机和相册');
+      return false;
+    }
+    return true;
+  };
+
+  // 从相册选择图片
+  const handlePickImages = async () => {
+    const hasPermission = await requestPermissions();
+    if (!hasPermission) return;
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: true,
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets) {
+      const newImages = result.assets.map((asset) => ({ uri: asset.uri }));
+      const totalImages = [...images, ...newImages];
+
+      if (totalImages.length > 9) {
+        Alert.alert('提示', `最多只能上传9张图片，已选择${totalImages.length}张`);
+        setImages(totalImages.slice(0, 9));
+      } else {
+        setImages(totalImages);
+      }
+    }
+  };
+
+  // 拍照
+  const handleTakePhoto = async () => {
+    const hasPermission = await requestPermissions();
+    if (!hasPermission) return;
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets?.[0]) {
+      if (images.length >= 9) {
+        Alert.alert('提示', '最多只能上传9张图片');
+        return;
+      }
+      setImages([...images, { uri: result.assets[0].uri }]);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
@@ -270,10 +332,10 @@ export default function CreateAnswer() {
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={handleCancel} hitSlop={12}>
-            <Ionicons name="close" size={24} color={COLORS.gray[700]} />
+            <Ionicons name="chevron-back" size={24} color={COLORS.gray[700]} />
           </TouchableOpacity>
 
-          <Text style={styles.headerTitle}>写回答</Text>
+          <Text style={styles.headerTitle}>回答</Text>
 
           <TouchableOpacity
             style={[styles.publishBtn, !canPublish() && styles.publishBtnDisabled]}
@@ -297,26 +359,21 @@ export default function CreateAnswer() {
           {/* 问题卡片 */}
           <View style={styles.questionCard}>
             <View style={styles.questionHeader}>
-              <Ionicons name="help-circle" size={20} color="#7C3AED" />
+              <Ionicons name="help-circle" size={20} color="#0284C7" />
               <Text style={styles.questionLabel}>回答问题</Text>
             </View>
             <Text style={styles.questionTitle}>{questionTitle}</Text>
-            {questionContent && (
-              <Text style={styles.questionContent} numberOfLines={3}>
-                {questionContent}
-              </Text>
-            )}
-          </View>
-
-          {/* 提示卡片 */}
-          <View style={styles.tipCard}>
-            <Ionicons name="bulb-outline" size={18} color="#7C3AED" />
-            <Text style={styles.tipText}>提供详细、有价值的回答，帮助提问者解决问题</Text>
+            <TouchableOpacity
+              style={styles.viewDetailBtn}
+              onPress={() => router.push(`/community/post/${questionId}`)}
+            >
+              <Text style={styles.viewDetailText}>查看详情</Text>
+              <Ionicons name="chevron-forward" size={16} color="#0284C7" />
+            </TouchableOpacity>
           </View>
 
           {/* 回答输入 */}
           <View style={styles.answerContainer}>
-            <Text style={styles.label}>你的回答</Text>
             <TextInput
               ref={contentInputRef}
               style={styles.answerInput}
@@ -355,31 +412,21 @@ export default function CreateAnswer() {
         </ScrollView>
 
         {/* 底部工具栏 */}
-        <View style={styles.toolbar}>
-          <View style={styles.toolbarLeft}>
-            {/* 图片按钮 */}
-            <TouchableOpacity onPress={() => setShowImagePicker(true)} style={styles.toolBtn}>
-              <Ionicons name="image-outline" size={22} color="#7C3AED" />
-              <Text style={styles.toolBtnText}>添加图片</Text>
-            </TouchableOpacity>
-
-            {/* 字数统计 */}
-            <View style={styles.wordCount}>
-              <Text
-                style={[
-                  styles.wordCountText,
-                  content.trim().length >= 10 && styles.wordCountValid,
-                ]}
-              >
-                {content.trim().length} / 最少10字
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.toolbarRight}>
-            {isSavingDraft && <Text style={styles.savingText}>保存中...</Text>}
-          </View>
-        </View>
+        <EditorToolbar
+          config={{
+            showImage: true,
+            showCamera: true,
+            showVideo: false,
+            showMention: false,
+            showTag: false,
+            showLocation: false,
+            showEmoji: false,
+          }}
+          onPickImages={handlePickImages}
+          onTakePhoto={handleTakePhoto}
+          isSaving={isSavingDraft}
+          rightText={images.length > 0 ? `${images.length}张图片` : ''}
+        />
 
         {/* 图片选择器 Modal */}
         {showImagePicker && (
@@ -445,10 +492,10 @@ const styles = StyleSheet.create({
   questionCard: {
     margin: 16,
     padding: 16,
-    backgroundColor: '#F5F3FF',
+    backgroundColor: '#E0F2FE',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E9D5FF',
+    borderColor: '#BAE6FD',
   },
   questionHeader: {
     flexDirection: 'row',
@@ -459,7 +506,7 @@ const styles = StyleSheet.create({
   questionLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#7C3AED',
+    color: '#0284C7',
     textTransform: 'uppercase',
   },
   questionTitle: {
@@ -467,41 +514,27 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.gray[900],
     lineHeight: 22,
-    marginBottom: 8,
   },
-  questionContent: {
-    fontSize: 14,
-    color: COLORS.gray[600],
-    lineHeight: 20,
-  },
-
-  // 提示卡片
-  tipCard: {
+  viewDetailBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 16,
-    marginBottom: 16,
-    padding: 12,
-    backgroundColor: '#EDE9FE',
-    borderRadius: 8,
-    gap: 8,
+    alignSelf: 'flex-start',
+    marginTop: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(2, 132, 199, 0.1)',
+    borderRadius: 6,
+    gap: 4,
   },
-  tipText: {
-    flex: 1,
+  viewDetailText: {
     fontSize: 13,
-    color: '#7C3AED',
-    lineHeight: 18,
+    fontWeight: '500',
+    color: '#0284C7',
   },
 
   // 回答输入
   answerContainer: {
     paddingHorizontal: 16,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.gray[700],
-    marginBottom: 12,
   },
   answerInput: {
     fontSize: 15,
@@ -541,55 +574,6 @@ const styles = StyleSheet.create({
     height: 24,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-
-  // 底部工具栏
-  toolbar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.gray[200],
-    backgroundColor: COLORS.white,
-  },
-  toolbarLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 24,
-  },
-  toolBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  toolBtnText: {
-    fontSize: 14,
-    color: '#7C3AED',
-    fontWeight: '500',
-  },
-  wordCount: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    backgroundColor: COLORS.gray[100],
-    borderRadius: 12,
-  },
-  wordCountText: {
-    fontSize: 12,
-    color: COLORS.gray[500],
-  },
-  wordCountValid: {
-    color: '#10B981',
-  },
-  toolbarRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  savingText: {
-    fontSize: 11,
-    color: COLORS.gray[500],
   },
 });
 

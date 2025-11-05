@@ -1,33 +1,32 @@
 /**
  * 写攻略页面
- * 功能：标题 + 正文编辑器（富文本） + 封面图 + 标签 + 分区
+ * 功能：标题 + 正文编辑器（富文本） + 标签 + 分区
  */
 
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    KeyboardAvoidingView,
-    Platform,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
-import CategoryPicker from '@/src/components/community/create/CategoryPicker';
-import MediaPicker from '@/src/components/community/create/MediaPicker';
 import TagInput from '@/src/components/community/create/TagInput';
+import EditorToolbar from '@/src/components/tools/EditorToolbar';
 import { COLORS } from '@/src/constants';
-import { uploadPostImages } from '@/src/services/api/modules/uploadApi';
 import { useAppDispatch, useUserInfo } from '@/src/store/hooks';
 import { publishPost } from '@/src/store/slices/communitySlice';
 
@@ -42,12 +41,9 @@ export default function CreateArticle() {
   // 状态管理
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [coverImage, setCoverImage] = useState(null);
-  const [category, setCategory] = useState(null);
   const [tags, setTags] = useState([]);
-  const [showCategoryPicker, setShowCategoryPicker] = useState(false);
+  const [images, setImages] = useState([]); // 图片数组
   const [showTagInput, setShowTagInput] = useState(false);
-  const [showCoverPicker, setShowCoverPicker] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
 
@@ -58,13 +54,13 @@ export default function CreateArticle() {
 
   // 自动保存草稿
   useEffect(() => {
-    if (title || content) {
+    if (title || content || images.length > 0) {
       const timer = setTimeout(() => {
         saveDraft();
       }, 2000);
       return () => clearTimeout(timer);
     }
-  }, [title, content, coverImage, category, tags]);
+  }, [title, content, tags, images]);
 
   // 自动聚焦
   useEffect(() => {
@@ -86,9 +82,8 @@ export default function CreateArticle() {
             onPress: () => {
               setTitle(data.title || '');
               setContent(data.content || '');
-              setCoverImage(data.coverImage || null);
-              setCategory(data.category || null);
               setTags(data.tags || []);
+              setImages(data.images || []);
             },
           },
         ]);
@@ -105,9 +100,8 @@ export default function CreateArticle() {
       const draft = {
         title,
         content,
-        coverImage,
-        category,
         tags,
+        images,
         savedAt: new Date().toISOString(),
       };
       await AsyncStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
@@ -148,28 +142,6 @@ export default function CreateArticle() {
     return true;
   };
 
-  // 上传封面图
-  const uploadCoverImage = async () => {
-    if (!coverImage) return null;
-
-    try {
-      if (coverImage.url) return coverImage.url;
-
-      console.log('📤 [上传封面] 开始上传封面图');
-      const uploadResults = await uploadPostImages([coverImage]);
-      const uploadedFiles = uploadResults?.data?.files || uploadResults?.files || [];
-      
-      if (uploadedFiles.length > 0) {
-        console.log('✅ [上传封面] 上传成功');
-        return uploadedFiles[0].url;
-      }
-      return null;
-    } catch (error) {
-      console.error('❌ [上传封面] 上传失败:', error);
-      throw new Error('封面上传失败，请重试');
-    }
-  };
-
   // 发布攻略
   const handlePublish = async () => {
     if (!validateForm()) return;
@@ -177,24 +149,17 @@ export default function CreateArticle() {
     setIsPublishing(true);
 
     try {
-      // 上传封面图
-      let coverUrl = null;
-      if (coverImage) {
-        console.log('📤 [发布流程] 步骤 1/2: 上传封面图');
-        coverUrl = await uploadCoverImage();
-      }
-
       // 发布攻略
-      console.log('📤 [发布流程] 步骤 2/2: 发布攻略');
+      console.log('📤 [发布流程] 发布攻略');
 
       const postData = {
         contentType: 'GUIDE', // 新API: GUIDE(写攻略)
         title: title.trim(),
         content: content.trim(),
         status: 'PUBLISHED',
-        coverImage: coverUrl, // 新API: 封面图URL
-        mediaUrls: [], // 新API: 使用mediaUrls替代images和videos
-        category: category || tags[0] || '攻略', // 新API: 使用category替代tags
+        mediaUrls: images, // 新API: 使用mediaUrls替代images和videos
+        category: tags[0] || '攻略', // 新API: 使用category替代tags
+        tags: tags, // 标签数组
         allowComment: true, // 新API: 是否允许评论
       };
 
@@ -242,7 +207,7 @@ export default function CreateArticle() {
 
   // 取消发布
   const handleCancel = () => {
-    if (title || content || coverImage) {
+    if (title || content || images.length > 0 || tags.length > 0) {
       Alert.alert('提示', '是否放弃当前编辑的内容？', [
         { text: '继续编辑', style: 'cancel' },
         {
@@ -266,9 +231,68 @@ export default function CreateArticle() {
     setTags(tags.filter((t) => t !== tag));
   };
 
-  // 移除封面
-  const removeCoverImage = () => {
-    setCoverImage(null);
+  // ========== 图片上传功能 ==========
+  
+  // 请求相机和相册权限
+  const requestPermissions = async () => {
+    const cameraPermission = await ImagePicker.requestCameraPermissionsAsync();
+    const mediaPermission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    
+    if (cameraPermission.status !== 'granted' || mediaPermission.status !== 'granted') {
+      Alert.alert('权限不足', '需要相机和相册权限才能上传图片');
+      return false;
+    }
+    return true;
+  };
+
+  // 拍照
+  const handleTakePhoto = async () => {
+    const hasPermission = await requestPermissions();
+    if (!hasPermission) return;
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets?.[0]) {
+      if (images.length >= 9) {
+        Alert.alert('提示', '最多只能上传9张图片');
+        return;
+      }
+      setImages([...images, result.assets[0].uri]);
+    }
+  };
+
+  // 从相册选择图片
+  const handlePickImages = async () => {
+    const hasPermission = await requestPermissions();
+    if (!hasPermission) return;
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: true,
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets) {
+      const newImages = result.assets.map(asset => asset.uri);
+      const totalImages = [...images, ...newImages];
+      
+      if (totalImages.length > 9) {
+        Alert.alert('提示', `最多只能上传9张图片，已选择${totalImages.length}张`);
+        setImages(totalImages.slice(0, 9));
+      } else {
+        setImages(totalImages);
+      }
+    }
+  };
+
+  // 删除图片
+  const removeImage = (index) => {
+    setImages(images.filter((_, i) => i !== index));
   };
 
   return (
@@ -281,10 +305,10 @@ export default function CreateArticle() {
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={handleCancel} hitSlop={12}>
-            <Ionicons name="close" size={24} color={COLORS.gray[700]} />
+            <Ionicons name="chevron-back" size={24} color={COLORS.gray[700]} />
           </TouchableOpacity>
 
-          <Text style={styles.headerTitle}>写攻略</Text>
+          <Text style={styles.headerTitle}>攻略</Text>
 
           <TouchableOpacity
             style={[styles.publishBtn, !canPublish() && styles.publishBtnDisabled]}
@@ -314,33 +338,9 @@ export default function CreateArticle() {
               placeholderTextColor={COLORS.gray[400]}
               value={title}
               onChangeText={setTitle}
-              maxLength={100}
               autoFocus
             />
-            <Text style={styles.charCount}>{title.length}/100</Text>
           </View>
-
-          {/* 封面图预览 */}
-          {coverImage ? (
-            <View style={styles.coverPreview}>
-              <Image source={{ uri: coverImage.uri }} style={styles.coverImage} />
-              <TouchableOpacity
-                style={styles.removeCoverBtn}
-                onPress={removeCoverImage}
-                hitSlop={8}
-              >
-                <Ionicons name="close-circle" size={24} color={COLORS.white} />
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <TouchableOpacity
-              style={styles.addCoverBtn}
-              onPress={() => setShowCoverPicker(true)}
-            >
-              <Ionicons name="image-outline" size={32} color={COLORS.gray[400]} />
-              <Text style={styles.addCoverText}>添加封面图（可选）</Text>
-            </TouchableOpacity>
-          )}
 
           {/* 正文输入 */}
           <View style={styles.contentContainer}>
@@ -355,103 +355,95 @@ export default function CreateArticle() {
             />
           </View>
 
-          {/* 已选信息标签 */}
-          {(category || tags.length > 0) && (
-            <View style={styles.selectedInfo}>
-              {category && (
-                <TouchableOpacity style={styles.chip} onPress={() => setCategory(null)}>
-                  <Ionicons name="grid" size={12} color={COLORS.success[600]} />
-                  <Text style={styles.chipText}>{category}</Text>
-                  <Ionicons name="close" size={14} color={COLORS.success[600]} />
-                </TouchableOpacity>
-              )}
-              {tags.map((tag) => (
-                <TouchableOpacity key={tag} style={styles.chip} onPress={() => removeTag(tag)}>
-                  <Text style={styles.chipText}>#{tag}</Text>
-                  <Ionicons name="close" size={14} color={COLORS.success[600]} />
-                </TouchableOpacity>
-              ))}
+          {/* 图片预览区域 */}
+          {images.length > 0 && (
+            <View style={styles.previewContainer}>
+              <View style={styles.imagesPreview}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {images.map((uri, index) => (
+                    <View key={index} style={styles.imageWrapper}>
+                      <Image source={{ uri }} style={styles.previewImage} />
+                      <TouchableOpacity
+                        style={styles.removeBtn}
+                        onPress={() => removeImage(index)}
+                      >
+                        <Ionicons name="close-circle" size={24} color="#EF4444" />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </ScrollView>
+                <Text style={styles.mediaCount}>{images.length}/9 张图片</Text>
+              </View>
             </View>
           )}
 
           <View style={{ height: 100 }} />
         </ScrollView>
 
-        {/* 底部工具栏 */}
-        <View style={styles.toolbar}>
-          <View style={styles.toolbarLeft}>
-            {/* 封面按钮 */}
-            <TouchableOpacity
-              onPress={() => setShowCoverPicker(true)}
-              style={styles.toolBtn}
-            >
-              <Ionicons name="image-outline" size={22} color={COLORS.success[600]} />
-              <Text style={styles.toolBtnText}>封面</Text>
-            </TouchableOpacity>
+        {/* 底部固定区域：标签展示 + 工具栏 */}
+        <View style={styles.bottomContainer}>
+          {/* 标签展示区域 */}
+          {tags.length > 0 && (
+            <View style={styles.tagsDisplayArea}>
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.tagsScrollContent}
+              >
+                {/* 标签显示 */}
+                {tags.map((tag) => (
+                  <View key={tag} style={styles.tagItem}>
+                    <Text style={styles.tagText}>#{tag}</Text>
+                    <TouchableOpacity onPress={() => removeTag(tag)}>
+                      <Ionicons name="close" size={16} color="#0284C7" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          )}
 
-            {/* 标签按钮 */}
-            <TouchableOpacity
-              onPress={() => setShowTagInput(!showTagInput)}
-              style={styles.toolBtn}
-            >
-              <Ionicons name="pricetag-outline" size={22} color={COLORS.success[600]} />
-              <Text style={styles.toolBtnText}>标签</Text>
-            </TouchableOpacity>
-
-            {/* 分区按钮 */}
-            <TouchableOpacity
-              onPress={() => setShowCategoryPicker(true)}
-              style={styles.toolBtn}
-            >
-              <Ionicons name="grid-outline" size={22} color={COLORS.success[600]} />
-              <Text style={styles.toolBtnText}>分区</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.toolbarRight}>
-            {isSavingDraft && <Text style={styles.savingText}>保存中...</Text>}
-          </View>
+          {/* 底部工具栏 */}
+          <EditorToolbar
+            config={{
+              showImage: true,
+              showCamera: true,
+              showVideo: false,
+              showMention: false,
+              showTag: true,
+              showLocation: false,
+              showEmoji: false,
+            }}
+            onPickImages={handlePickImages}
+            onTakePhoto={handleTakePhoto}
+            onAddTag={() => setShowTagInput(true)}
+            isSaving={isSavingDraft}
+            rightText={
+              images.length > 0
+                ? `${images.length}张图片`
+                : ''
+            }
+          />
         </View>
 
-        {/* 标签输入 */}
-        {showTagInput && (
-          <View style={styles.tagInputContainer}>
-            <View style={styles.tagInputHeader}>
-              <Text style={styles.tagInputTitle}>添加标签</Text>
-              <TouchableOpacity onPress={() => setShowTagInput(false)}>
-                <Ionicons name="close" size={24} color={COLORS.gray[600]} />
-              </TouchableOpacity>
-            </View>
-            <TagInput tags={tags} onTagsChange={setTags} maxTags={5} />
-          </View>
-        )}
-
-        {/* 封面选择器 Modal */}
-        {showCoverPicker && (
-          <MediaPicker
-            type="image"
-            images={coverImage ? [coverImage] : []}
-            video={null}
-            onImagesChange={(images) => setCoverImage(images[0] || null)}
-            onVideoChange={() => {}}
-            visible={showCoverPicker}
-            onClose={() => setShowCoverPicker(false)}
-            maxImages={1}
-          />
-        )}
-
-        {/* 分区选择器 Modal */}
-        {showCategoryPicker && (
-          <CategoryPicker
-            visible={showCategoryPicker}
-            selectedCategory={category}
-            onSelect={(cat) => {
-              setCategory(cat);
-              setShowCategoryPicker(false);
-            }}
-            onClose={() => setShowCategoryPicker(false)}
-          />
-        )}
+        {/* 标签输入 Modal */}
+        <TagInput
+          visible={showTagInput}
+          onClose={() => setShowTagInput(false)}
+          onAddTag={(tag) => {
+            if (!tag.trim()) return;
+            if (tags.length >= 5) {
+              Alert.alert('提示', '最多只能添加5个标签');
+              return;
+            }
+            if (tags.includes(tag.trim())) {
+              Alert.alert('提示', '该标签已存在');
+              return;
+            }
+            setTags([...tags, tag.trim()]);
+          }}
+          currentTags={tags}
+        />
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -482,7 +474,7 @@ const styles = StyleSheet.create({
   publishBtn: {
     paddingHorizontal: 20,
     paddingVertical: 8,
-    backgroundColor: COLORS.success[600],
+    backgroundColor: '#0284C7',
     borderRadius: 20,
     minWidth: 60,
     alignItems: 'center',
@@ -513,54 +505,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.gray[900],
     lineHeight: 28,
-    marginBottom: 8,
-  },
-  charCount: {
-    fontSize: 12,
-    color: COLORS.gray[400],
-    textAlign: 'right',
-  },
-
-  // 封面图
-  coverPreview: {
-    position: 'relative',
-    marginHorizontal: 16,
-    marginVertical: 16,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  coverImage: {
-    width: '100%',
-    height: 200,
-    backgroundColor: COLORS.gray[100],
-  },
-  removeCoverBtn: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    borderRadius: 20,
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  addCoverBtn: {
-    marginHorizontal: 16,
-    marginVertical: 16,
-    height: 120,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderStyle: 'dashed',
-    borderColor: COLORS.gray[300],
-    backgroundColor: COLORS.gray[50],
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  addCoverText: {
-    fontSize: 14,
-    color: COLORS.gray[500],
-    marginTop: 8,
   },
 
   // 正文输入
@@ -575,82 +519,69 @@ const styles = StyleSheet.create({
     minHeight: 300,
   },
 
-  // 已选信息
-  selectedInfo: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  // 图片预览区域
+  previewContainer: {
     paddingHorizontal: 16,
-    paddingTop: 12,
-    gap: 8,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.gray[100],
   },
-  chip: {
+  imagesPreview: {
+    marginBottom: 12,
+  },
+  imageWrapper: {
+    position: 'relative',
+    marginRight: 12,
+  },
+  previewImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 8,
+    backgroundColor: COLORS.gray[100],
+  },
+  removeBtn: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+  },
+  mediaCount: {
+    fontSize: 12,
+    color: COLORS.gray[500],
+    marginTop: 8,
+  },
+
+  // 底部固定区域容器
+  bottomContainer: {
+    backgroundColor: COLORS.white,
+  },
+
+  // 标签展示区域（固定在工具栏上方）
+  tagsDisplayArea: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.gray[100],
+    backgroundColor: COLORS.white,
+  },
+  tagsScrollContent: {
+    gap: 8,
+    paddingRight: 16,
+  },
+  tagItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.success[50],
+    backgroundColor: '#E0F2FE',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
     gap: 4,
   },
-  chipText: {
+  tagText: {
     fontSize: 13,
     fontWeight: '500',
-    color: COLORS.success[600],
-  },
-
-  // 底部工具栏
-  toolbar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.gray[200],
-    backgroundColor: COLORS.white,
-  },
-  toolbarLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 24,
-  },
-  toolBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  toolBtnText: {
-    fontSize: 13,
-    color: COLORS.success[600],
-    fontWeight: '500',
-  },
-  toolbarRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  savingText: {
-    fontSize: 11,
-    color: COLORS.gray[500],
-  },
-
-  // 标签输入
-  tagInputContainer: {
-    borderTopWidth: 1,
-    borderTopColor: COLORS.gray[200],
-    backgroundColor: COLORS.white,
-    padding: 16,
-  },
-  tagInputHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  tagInputTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.gray[900],
+    color: '#0284C7',
   },
 });
 
