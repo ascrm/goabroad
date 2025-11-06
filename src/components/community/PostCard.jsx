@@ -6,12 +6,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
-  Image,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Image,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 import Avatar from '@/src/components/ui/Avatar';
@@ -183,66 +183,68 @@ const PostCard = ({ post, onPress }) => {
 
       {/* 底部交互栏 */}
       <View style={styles.actions}>
-        {/* 评论 */}
-        <TouchableOpacity 
-          style={styles.actionItem}
-          onPress={(e) => {
-            e.stopPropagation();
-            // TODO: 处理评论
-          }}
-        >
-          <Ionicons name="chatbubble-outline" size={18} color={COLORS.gray[500]} />
-          {post.commentCount > 0 && (
-            <Text style={styles.actionText}>{formatNumber(post.commentCount)}</Text>
-          )}
-        </TouchableOpacity>
+        <View style={styles.leftActions}>
+          {/* 评论 */}
+          <TouchableOpacity 
+            style={styles.actionItem}
+            onPress={(e) => {
+              e.stopPropagation();
+              // TODO: 处理评论
+            }}
+          >
+            <Ionicons name="chatbubble-outline" size={18} color={COLORS.gray[500]} />
+            {post.commentCount > 0 && (
+              <Text style={styles.actionText}>{formatNumber(post.commentCount)}</Text>
+            )}
+          </TouchableOpacity>
 
-        {/* 转发 */}
-        <TouchableOpacity 
-          style={styles.actionItem}
-          onPress={(e) => {
-            e.stopPropagation();
-            // TODO: 处理转发
-          }}
-        >
-          <Ionicons name="repeat-outline" size={20} color={COLORS.gray[500]} />
-          {post.shareCount > 0 && (
-            <Text style={styles.actionText}>{formatNumber(post.shareCount)}</Text>
-          )}
-        </TouchableOpacity>
+          {/* 转发 */}
+          <TouchableOpacity 
+            style={styles.actionItem}
+            onPress={(e) => {
+              e.stopPropagation();
+              // TODO: 处理转发
+            }}
+          >
+            <Ionicons name="repeat-outline" size={20} color={COLORS.gray[500]} />
+            {post.shareCount > 0 && (
+              <Text style={styles.actionText}>{formatNumber(post.shareCount)}</Text>
+            )}
+          </TouchableOpacity>
 
-        {/* 点赞 */}
-        <TouchableOpacity 
-          style={styles.actionItem}
-          onPress={(e) => {
-            e.stopPropagation();
-            // TODO: 处理点赞
-          }}
-        >
-          <Ionicons 
-            name={post.liked ? "heart" : "heart-outline"} 
-            size={18} 
-            color={post.liked ? COLORS.error[500] : COLORS.gray[500]} 
-          />
-          {post.likeCount > 0 && (
-            <Text style={[
-              styles.actionText,
-              post.liked && styles.actionTextLiked
-            ]}>
-              {formatNumber(post.likeCount)}
-            </Text>
-          )}
-        </TouchableOpacity>
+          {/* 点赞 */}
+          <TouchableOpacity 
+            style={styles.actionItem}
+            onPress={(e) => {
+              e.stopPropagation();
+              // TODO: 处理点赞
+            }}
+          >
+            <Ionicons 
+              name={post.liked ? "heart" : "heart-outline"} 
+              size={18} 
+              color={post.liked ? COLORS.error[500] : COLORS.gray[500]} 
+            />
+            {post.likeCount > 0 && (
+              <Text style={[
+                styles.actionText,
+                post.liked && styles.actionTextLiked
+              ]}>
+                {formatNumber(post.likeCount)}
+              </Text>
+            )}
+          </TouchableOpacity>
 
-        {/* 浏览量 */}
-        <View style={styles.actionItem}>
-          <Ionicons name="eye-outline" size={18} color={COLORS.gray[500]} />
-          {post.viewCount > 0 && (
-            <Text style={styles.actionText}>{formatNumber(post.viewCount)}</Text>
-          )}
+          {/* 浏览量/数据统计 */}
+          <View style={styles.actionItem}>
+            <Ionicons name="stats-chart-outline" size={18} color={COLORS.gray[500]} />
+            {post.viewCount > 0 && (
+              <Text style={styles.actionText}>{formatNumber(post.viewCount)}</Text>
+            )}
+          </View>
         </View>
 
-        {/* 书签 */}
+        {/* 书签/收藏 */}
         <TouchableOpacity 
           style={styles.actionItem}
           onPress={(e) => {
@@ -351,9 +353,15 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginTop: 12,
     marginLeft: 52,
-    gap: 32,
+  },
+  leftActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 24,
   },
   actionItem: {
     flexDirection: 'row',
@@ -366,6 +374,9 @@ const styles = StyleSheet.create({
   },
   actionTextLiked: {
     color: COLORS.error[500],
+  },
+  actionTextBookmarked: {
+    color: COLORS.primary[600],
   },
 });
 

@@ -133,6 +133,60 @@ export const special = {
   placeholder: gray[400],             // 占位符
 };
 
+// 分类专用配色方案（根据AI提示词设计文档）
+export const categoryColors = {
+  // 推荐 - 多彩混合（默认主题色）
+  recommend: {
+    primary: primary[600],
+    background: gray[50],
+    accent: primary[400],
+  },
+  // 留学 - 深蓝 + 金色（学术感）
+  study: {
+    primary: '#1E40AF', // 深蓝
+    secondary: '#F59E0B', // 金色
+    background: '#FEFEFE', // 象牙白
+    tagBg: {
+      hot: error[50],
+      recommended: primary[50],
+      migration: success[50],
+      value: warning[50],
+      art: info[50],
+    },
+  },
+  // 工作 - 深灰 + 橙色（商务感）
+  work: {
+    primary: '#374151', // 深灰
+    secondary: '#F97316', // 橙色
+    salary: '#10B981', // 绿色（薪资）
+    accent: primary[600],
+    tagBg: primary[50],
+  },
+  // 签证 - 蓝绿 + 白色（清新专业）
+  visa: {
+    primary: '#0EA5E9', // 蓝绿
+    gradient: ['#3B82F6', '#06B6D4'], // 渐变蓝
+    success: '#22C55E', // 通过率绿色
+    warning: warning[600],
+    error: error[600],
+    background: '#F0F9FF', // 极浅蓝
+  },
+  // 生活 - 暖色调（粉、橙、黄）
+  life: {
+    gradients: ['#F472B6', '#FB923C', '#FBBF24'], // 粉、橙、黄
+    overlay: 'rgba(0, 0, 0, 0.4)',
+    accent: primary[600],
+  },
+  // 其他 - 中性灰色系（简洁）
+  other: {
+    primary: gray[900],
+    secondary: gray[600],
+    tertiary: gray[400],
+    accent: primary[600],
+    background: '#FFFFFF',
+  },
+};
+
 // 导出所有颜色
 export const colors = {
   primary,
@@ -146,6 +200,7 @@ export const colors = {
   border,
   status,
   special,
+  categoryColors,
   // 常用颜色快捷方式
   white: '#FFFFFF',
   black: '#000000',

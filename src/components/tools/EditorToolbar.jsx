@@ -7,10 +7,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 
 import { COLORS } from '@/src/constants';
@@ -25,6 +25,7 @@ import { COLORS } from '@/src/constants';
  * @property {boolean} showTag - 显示标签图标
  * @property {boolean} showLocation - 显示位置图标
  * @property {boolean} showEmoji - 显示表情图标
+ * @property {boolean} showRichText - 显示富文本格式工具图标
  */
 
 /**
@@ -38,6 +39,7 @@ import { COLORS } from '@/src/constants';
  * @param {Function} props.onAddTag - 添加标签回调
  * @param {Function} props.onAddLocation - 添加位置回调
  * @param {Function} props.onAddEmoji - 添加表情回调
+ * @param {Function} props.onToggleRichToolbar - 切换富文本工具栏回调
  * @param {string} props.rightText - 右侧提示文本
  * @param {boolean} props.isSaving - 是否正在保存
  * @param {Object} props.style - 自定义样式
@@ -51,6 +53,7 @@ export default function EditorToolbar({
     showTag: true,
     showLocation: false,
     showEmoji: false,
+    showRichText: false,
   },
   onPickImages,
   onTakePhoto,
@@ -59,6 +62,7 @@ export default function EditorToolbar({
   onAddTag,
   onAddLocation,
   onAddEmoji,
+  onToggleRichToolbar,
   rightText = '',
   isSaving = false,
   style,
@@ -141,6 +145,17 @@ export default function EditorToolbar({
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <Ionicons name="happy-outline" size={24} color="#00A6F0" />
+          </TouchableOpacity>
+        )}
+
+        {/* 富文本格式工具 */}
+        {config.showRichText && (
+          <TouchableOpacity
+            style={styles.toolbarBtn}
+            onPress={onToggleRichToolbar}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="text" size={24} color="#00A6F0" />
           </TouchableOpacity>
         )}
       </View>

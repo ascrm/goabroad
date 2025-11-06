@@ -1,166 +1,356 @@
-我来帮你检查项目中未被引用的文件和无用文件。让我系统地分析一下。
+我先看一下相关文件的代码，了解当前的实现情况。
 
-[44 tools called]
+[3 tools called]
 
-根据我对整个项目的系统检查，我发现了以下**未被引用或无用的文件**：
+好的，我理解问题了。现在的核心问题是：
 
-## 📋 检查结果总结
+1. **点击字母图标后，键盘没有消失，富文本工具栏也没有显示**
+2. 需要实现键盘和富文本工具栏的**平滑切换**
 
-### ❌ 完全未被使用的文件
+## 🎯 问题分析
 
-1. **`src/components/home/UnifiedFeed.jsx`**
-   - 在 `src/components/home/index.js` 中导出
-   - 但在整个项目中没有任何地方实际引用
-   - 状态：可以删除
+当前代码在 `handleToggleRichToolbar` 中调用了 `editorRef.current?.focus()`，这会**重新唤起键盘**，导致键盘无法关闭。
 
-2. **`src/components/home/QuickToolsGrid.jsx`** 和 **`src/components/home/QuickTools.jsx`**
-   - 在 `src/components/home/index.js` 中导出
-   - 但在整个项目中没有任何地方实际引用（除了 README.md 文档）
-   - 状态：可以删除
+另外，由于使用的是 WebView 编辑器（`react-native-pell-rich-editor`），键盘的控制逻辑与原生 TextInput 不同。
 
-3. **`src/components/home/DailyCheckIn.jsx`**
-   - 在 `src/components/home/index.js` 中导出
-   - 但在整个项目中没有任何地方实际引用
-   - 状态：可以删除
+---
 
-4. **`src/components/home/EmptyPlanCard.jsx`**
-   - 在 `src/components/home/index.js` 中导出
-   - 但在整个项目中没有任何地方实际引用
-   - 状态：可以删除
+## ✅ 解决方案
 
-5. **`src/components/home/InterestTags.jsx`**
-   - 在 `src/components/home/index.js` 中导出
-   - 但在整个项目中没有任何地方实际引用
-   - 状态：可以删除
+我提供**两个方案**，你可以根据效果选择：
 
-6. **`src/components/country/AdvancedFilters.jsx`**
-   - 在 `src/components/country/index.js` 中导出
-   - 但在整个项目中没有任何地方实际引用
-   - 状态：可以删除
+### 🔥 方案一：使用 KeyboardAvoidingView + Animated 实现平滑切换（推荐）
 
-7. **`src/components/country/CompareMode.jsx`**
-   - 在 `src/components/country/index.js` 中导出
-   - 但在整个项目中没有任何地方实际引用
-   - 状态：可以删除
+这个方案会让富文本工具栏的显示/隐藏更加流畅，类似键盘的动画效果。
 
-8. **`src/components/country/CompareResult.jsx`**
-   - 在 `src/components/country/index.js` 中导出
-   - 但在整个项目中没有任何地方实际引用
-   - 状态：可以删除
+**核心改动点：**
 
-9. **`src/components/country/MapView.jsx`**
-   - 在 `src/components/country/index.js` 中导出
-   - 但在整个项目中没有任何地方实际引用
-   - 状态：可以删除
+#### 1. 修改 `create.jsx` 的状态和逻辑
 
-10. **`src/components/planning/CalendarView.jsx`**
-    - 在 `src/components/planning/index.js` 中导出
-    - 在 `app/planning/[id].jsx` 中没有被实际使用
-    - 状态：可以删除
+```javascript
+import { Animated, Keyboard } from 'react-native';
 
-11. **`src/components/planning/KanbanView.jsx`**
-    - 在 `src/components/planning/index.js` 中导出
-    - 在 `app/planning/[id].jsx` 中没有被实际使用
-    - 状态：可以删除
+// 在组件内添加动画值
+const [keyboardHeight, setKeyboardHeight] = useState(0);
+const toolbarAnimation = useRef(new Animated.Value(0)).current;
 
-12. **`src/components/planning/ViewSwitcher.jsx`**
-    - 在 `src/components/planning/index.js` 中导出
-    - 在整个项目中没有任何地方实际引用
-    - 状态：可以删除
+// 修改键盘监听逻辑
+useEffect(() => {
+  const keyboardWillShowListener = Keyboard.addListener(
+    Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+    (e) => {
+      setKeyboardHeight(e.endCoordinates.height);
+      // 键盘显示时，隐藏富文本工具栏
+      if (showRichToolbar) {
+        setShowRichToolbar(false);
+      }
+    }
+  );
 
-13. **`src/components/profile/UserHeader.jsx`**
-    - 创建了但没有在任何地方被引用
-    - 状态：可以删除
+  const keyboardWillHideListener = Keyboard.addListener(
+    Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+    () => {
+      setKeyboardHeight(0);
+    }
+  );
 
-14. **`src/examples/UserApiExample.jsx`**
-    - 示例文件，没有在项目中被引用
-    - 状态：可以删除（或保留作为文档）
+  return () => {
+    keyboardWillShowListener.remove();
+    keyboardWillHideListener.remove();
+  };
+}, [showRichToolbar]);
 
-15. **`src/utils/mockProfileData.js`**
-    - Mock数据文件，没有在项目中被引用
-    - 状态：可以删除
+// 修改富文本工具栏切换逻辑
+const handleToggleRichToolbar = () => {
+  if (showRichToolbar) {
+    // 关闭富文本工具栏，显示键盘
+    setShowRichToolbar(false);
+    // 延迟聚焦，等工具栏消失后再显示键盘
+    setTimeout(() => {
+      editorRef.current?.focus();
+    }, 100);
+  } else {
+    // 先让编辑器失焦，关闭键盘
+    editorRef.current?.blur();
+    Keyboard.dismiss();
+    // 等键盘完全消失后再显示工具栏
+    setTimeout(() => {
+      setShowRichToolbar(true);
+    }, Platform.OS === 'ios' ? 100 : 200);
+  }
+};
 
-16. **`app/community/answer/question-list.jsx`**
-    - 从git status看是新增的未追踪文件
-    - 但只在 `CreatePostModal` 中被引用了一次，需要确认是否真正使用
-    - 状态：可能需要集成到导航中，或删除
+// 富文本工具栏的动画效果
+useEffect(() => {
+  Animated.timing(toolbarAnimation, {
+    toValue: showRichToolbar ? 1 : 0,
+    duration: 250,
+    useNativeDriver: true,
+  }).start();
+}, [showRichToolbar]);
 
-### ⚠️ 未在index.js中导出但被使用的组件
-
-以下组件没有在 `src/components/community/index.js` 中导出，但在项目中被直接引用：
-
-1. **Community组件** (未导出但被使用):
-   - `PostDetail.jsx` - 在 `app/community/post/[id].jsx` 中使用
-   - `CommentList.jsx` - 在 `PostDetail.jsx` 中使用
-   - `CommentInput.jsx` - 在 `PostDetail.jsx` 中使用
-   - `CommentItem.jsx` - 在 `CommentList.jsx` 中使用
-   - `FeedList.jsx` - 在多个地方使用
-   - `ImageViewer.jsx` - 在 `PostDetail.jsx` 中使用
-   - `VideoCard.jsx` - 在 `app/profile/edit.jsx` 等地方使用
-   - `TopicTag.jsx` - 在多个地方使用
-   - `TrendingTopics.jsx` - 在多个地方使用
-   - `UserProfile.jsx` - 在 `app/profile/user/[id].jsx` 中使用
-   - `CategorySelector.jsx` - 在多个地方使用
-   - `EmojiPicker.jsx` - 在 `app/community/post/create.jsx` 中使用
-
-   **建议**：这些组件应该被添加到 `src/components/community/index.js` 中统一导出
-
-### ✅ 正常使用的组件
-
-以下组件正在正常使用中：
-- `HomeNavigationBar` - 在首页使用
-- `RecommendFeed` - 在首页使用
-- `LatestGuides` - 在首页使用
-- `CommunityNavigationBar` - 在社区页使用
-- `PostCard` - 在社区页使用
-- `CountryCard`, `CountryFilters` - 在国家列表页使用
-- 搜索组件 - 在搜索页使用
-- 规划组件 - 在规划详情页使用
-- Layout组件 - 在tabs布局中使用
-
-### 🗑️ 已删除但Git中标记为删除的文件
-
-从git status看，以下文件已被删除（正确操作）：
-- `app/(main)/_layout.jsx`
-- `app/(main)/home.jsx`
-- `src/components/layout/TopNavigationBar.jsx`
-- `app/community/README.md`
-
-## 💡 清理建议
-
-**立即可以删除的文件（16个）：**
-```bash
-# Home组件
-src/components/home/UnifiedFeed.jsx
-src/components/home/QuickToolsGrid.jsx
-src/components/home/QuickTools.jsx
-src/components/home/DailyCheckIn.jsx
-src/components/home/EmptyPlanCard.jsx
-src/components/home/InterestTags.jsx
-
-# Country组件
-src/components/country/AdvancedFilters.jsx
-src/components/country/CompareMode.jsx
-src/components/country/CompareResult.jsx
-src/components/country/MapView.jsx
-
-# Planning组件
-src/components/planning/CalendarView.jsx
-src/components/planning/KanbanView.jsx
-src/components/planning/ViewSwitcher.jsx
-
-# Profile组件
-src/components/profile/UserHeader.jsx
-
-# Utils和Examples
-src/utils/mockProfileData.js
-src/examples/UserApiExample.jsx
+// 富文本工具栏的动画样式
+const toolbarAnimatedStyle = {
+  transform: [
+    {
+      translateY: toolbarAnimation.interpolate({
+        inputRange: [0, 1],
+        outputRange: [200, 0], // 从下方滑入
+      }),
+    },
+  ],
+  opacity: toolbarAnimation,
+};
 ```
 
-**需要更新的导出文件：**
-- `src/components/home/index.js` - 移除未使用组件的导出
-- `src/components/country/index.js` - 移除未使用组件的导出
-- `src/components/planning/index.js` - 移除未使用组件的导出
-- `src/components/community/index.js` - 添加实际使用的组件导出
+#### 2. 修改富文本工具栏的渲染
 
-删除这些文件可以减少项目体积，提高维护性。建议在删除前确认这些组件确实不会在未来使用。
+```javascript
+{/* 富文本工具栏（替换键盘位置） */}
+{showRichToolbar && (
+  <Animated.View style={[styles.richToolbarContainer, toolbarAnimatedStyle]}>
+    <RichTextToolbar
+      editorRef={editorRef}
+      onDismiss={() => {
+        setShowRichToolbar(false);
+        // 关闭工具栏后，重新聚焦编辑器
+        setTimeout(() => {
+          editorRef.current?.focus();
+        }, 100);
+      }}
+    />
+  </Animated.View>
+)}
+```
+
+#### 3. 添加样式
+
+```javascript
+richToolbarContainer: {
+  position: 'absolute',
+  bottom: 0,
+  left: 0,
+  right: 0,
+  zIndex: 999,
+},
+```
+
+---
+
+### 🚀 方案二：简化版（更简单，但无动画）
+
+如果你不需要动画效果，可以用更简单的方式：
+
+#### 修改 `create.jsx`
+
+```javascript
+// 修改富文本工具栏切换逻辑
+const handleToggleRichToolbar = () => {
+  if (showRichToolbar) {
+    // 关闭富文本工具栏
+    setShowRichToolbar(false);
+    // 延迟聚焦编辑器，显示键盘
+    setTimeout(() => {
+      editorRef.current?.focus();
+    }, 150);
+  } else {
+    // 先失焦编辑器
+    editorRef.current?.blur();
+    // 关闭键盘
+    Keyboard.dismiss();
+    // 延迟显示富文本工具栏
+    setTimeout(() => {
+      setShowRichToolbar(true);
+    }, 250); // Android 需要更长的延迟
+  }
+};
+
+// 修改编辑器的 onFocus 回调
+<RichTextEditor
+  ref={editorRef}
+  initialContent={content}
+  onContentChange={setContent}
+  placeholder="分享你的出国攻略和经验..."
+  minHeight={400}
+  onFocus={() => {
+    // 编辑器获得焦点时，确保工具栏关闭
+    if (showRichToolbar) {
+      setShowRichToolbar(false);
+    }
+  }}
+/>
+```
+
+#### 修改富文本工具栏渲染（绝对定位）
+
+```javascript
+{/* 富文本工具栏 - 固定在底部 */}
+{showRichToolbar && (
+  <View style={styles.richToolbarWrapper}>
+    <RichTextToolbar
+      editorRef={editorRef}
+      onDismiss={() => {
+        setShowRichToolbar(false);
+        setTimeout(() => {
+          editorRef.current?.focus();
+        }, 100);
+      }}
+    />
+  </View>
+)}
+```
+
+#### 添加样式
+
+```javascript
+richToolbarWrapper: {
+  position: 'absolute',
+  bottom: 0,
+  left: 0,
+  right: 0,
+  backgroundColor: COLORS.white,
+  zIndex: 1000,
+  elevation: 8, // Android 阴影
+  shadowColor: '#000', // iOS 阴影
+  shadowOffset: { width: 0, height: -2 },
+  shadowOpacity: 0.1,
+  shadowRadius: 4,
+},
+```
+
+---
+
+### 🔧 方案三：完全不使用 focus/blur（最稳定）
+
+如果方案一和二都不理想，可以完全移除编辑器的 focus/blur 调用：
+
+```javascript
+const handleToggleRichToolbar = () => {
+  if (showRichToolbar) {
+    // 关闭富文本工具栏
+    setShowRichToolbar(false);
+  } else {
+    // 关闭键盘
+    Keyboard.dismiss();
+    // 延迟显示工具栏
+    setTimeout(() => {
+      setShowRichToolbar(true);
+    }, Platform.OS === 'ios' ? 150 : 300);
+  }
+};
+
+// 用户点击编辑器时自动隐藏工具栏（通过 onFocus）
+<RichTextEditor
+  ref={editorRef}
+  initialContent={content}
+  onContentChange={setContent}
+  placeholder="分享你的出国攻略和经验..."
+  minHeight={400}
+  onFocus={() => setShowRichToolbar(false)}
+/>
+```
+
+---
+
+## 📋 完整代码示例（方案二 - 推荐）
+
+由于你在 **ask mode**，我无法直接修改文件。以下是完整的修改代码，你可以复制应用：
+
+### 修改 `app/community/article/create.jsx`
+
+找到以下几个地方并修改：
+
+#### 1. 修改 `handleToggleRichToolbar` 函数（约320行）
+
+```javascript
+// 切换富文本工具栏
+const handleToggleRichToolbar = () => {
+  if (showRichToolbar) {
+    // 关闭富文本工具栏，显示键盘
+    setShowRichToolbar(false);
+    setTimeout(() => {
+      editorRef.current?.focus();
+    }, 100);
+  } else {
+    // 关闭键盘，显示富文本工具栏
+    editorRef.current?.blur();
+    Keyboard.dismiss();
+    setTimeout(() => {
+      setShowRichToolbar(true);
+    }, Platform.OS === 'ios' ? 150 : 300);
+  }
+};
+```
+
+#### 2. 修改 `RichTextEditor` 组件（约387行）
+
+```javascript
+{/* 正文编辑器 */}
+<View style={styles.editorContainer}>
+  <RichTextEditor
+    ref={editorRef}
+    initialContent={content}
+    onContentChange={setContent}
+    placeholder="分享你的出国攻略和经验..."
+    minHeight={400}
+    onFocus={() => {
+      // 编辑器获得焦点时，隐藏富文本工具栏
+      if (showRichToolbar) {
+        setShowRichToolbar(false);
+      }
+    }}
+  />
+</View>
+```
+
+#### 3. 修改富文本工具栏渲染（约489行）
+
+```javascript
+{/* 富文本工具栏（固定在底部） */}
+{showRichToolbar && (
+  <View style={styles.richToolbarWrapper}>
+    <RichTextToolbar
+      editorRef={editorRef}
+      onDismiss={() => {
+        setShowRichToolbar(false);
+        setTimeout(() => {
+          editorRef.current?.focus();
+        }, 100);
+      }}
+    />
+  </View>
+)}
+```
+
+#### 4. 在 styles 中添加新样式（约635行后）
+
+```javascript
+richToolbarWrapper: {
+  position: 'absolute',
+  bottom: 0,
+  left: 0,
+  right: 0,
+  backgroundColor: COLORS.white,
+  zIndex: 1000,
+  elevation: 8, // Android 阴影
+  shadowColor: '#000', // iOS 阴影
+  shadowOffset: { width: 0, height: -2 },
+  shadowOpacity: 0.1,
+  shadowRadius: 4,
+},
+```
+
+---
+
+## ⚡ 关键点总结
+
+1. **blur() 是关键**：在显示工具栏前，必须先让编辑器失焦
+2. **延迟很重要**：Android 需要更长的延迟（300ms）以确保键盘完全消失
+3. **绝对定位**：富文本工具栏使用绝对定位，覆盖在键盘位置
+4. **双向控制**：
+   - 点击字母图标 → 隐藏键盘 + 显示工具栏
+   - 点击编辑器 → 隐藏工具栏 + 显示键盘
+
+---
+
+请切换到 **agent mode** 让我帮你应用这些更改，或者你可以手动复制上面的代码进行修改。建议先使用**方案二**（简化版），如果效果满意就不需要复杂的动画。

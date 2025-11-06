@@ -12,8 +12,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   Image,
-  KeyboardAvoidingView,
+  Keyboard,
   Platform,
   SafeAreaView,
   ScrollView,
@@ -24,6 +25,8 @@ import {
   View,
 } from 'react-native';
 
+import RichTextEditor from '@/src/components/community/create/RichTextEditor';
+import RichTextToolbar from '@/src/components/community/create/RichTextToolbar';
 import TagInput from '@/src/components/community/create/TagInput';
 import EditorToolbar from '@/src/components/tools/EditorToolbar';
 import { COLORS } from '@/src/constants';
@@ -37,6 +40,7 @@ export default function CreateArticle() {
   const dispatch = useAppDispatch();
   const userInfo = useUserInfo();
   const titleInputRef = useRef(null);
+  const editorRef = useRef(null); // 富文本编辑器引用
 
   // 状态管理
   const [title, setTitle] = useState('');
@@ -44,13 +48,28 @@ export default function CreateArticle() {
   const [tags, setTags] = useState([]);
   const [images, setImages] = useState([]); // 图片数组
   const [showTagInput, setShowTagInput] = useState(false);
+  const [showRichToolbar, setShowRichToolbar] = useState(false); // 富文本工具栏显示状态
   const [isPublishing, setIsPublishing] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0); // 键盘高度
+  const [richToolbarHeight, setRichToolbarHeight] = useState(0); // 富文本工具栏高度
+  
+  // 动画值：底部容器的 marginBottom
+  const bottomMarginAnim = useRef(new Animated.Value(0)).current;
 
   // 从草稿恢复
   useEffect(() => {
     loadDraft();
   }, []);
+
+  // 监听富文本工具栏显示/隐藏，执行动画
+  useEffect(() => {
+    Animated.timing(bottomMarginAnim, {
+      toValue: showRichToolbar ? richToolbarHeight : 0,
+      duration: 250, // 动画时长 250ms，与工具栏滑入动画保持一致
+      useNativeDriver: false, // marginBottom 不支持 native driver
+    }).start();
+  }, [showRichToolbar, richToolbarHeight]);
 
   // 自动保存草稿
   useEffect(() => {
@@ -68,6 +87,38 @@ export default function CreateArticle() {
       titleInputRef.current?.focus();
     }, 300);
   }, []);
+
+  // 监听键盘事件（自定义实现 KeyboardAvoidingView 的 padding behavior）
+  useEffect(() => {
+    // 只在 iOS 上启用（Android 不需要）
+    if (Platform.OS !== 'ios') return;
+
+    // 键盘显示事件
+    const keyboardWillShow = Keyboard.addListener(
+      'keyboardWillShow',
+      (e) => {
+        // 获取键盘高度
+        let height = e.endCoordinates.height;
+        height = height - 40;
+        setKeyboardHeight(height);
+      }
+    );
+
+    // 键盘隐藏事件
+    const keyboardWillHide = Keyboard.addListener(
+      'keyboardWillHide',
+      () => {
+        setKeyboardHeight(0);
+      }
+    );
+
+    // 清理监听器
+    return () => {
+      keyboardWillShow.remove();
+      keyboardWillHide.remove();
+    };
+  }, []);
+
 
   // 加载草稿
   const loadDraft = async () => {
@@ -298,9 +349,11 @@ export default function CreateArticle() {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
-      <KeyboardAvoidingView
-        style={styles.keyboardView}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      <View 
+        style={[
+          styles.keyboardView,
+          { paddingBottom: keyboardHeight } // 动态设置底部内边距
+        ]}
       >
         {/* Header */}
         <View style={styles.header}>
@@ -308,7 +361,9 @@ export default function CreateArticle() {
             <Ionicons name="chevron-back" size={24} color={COLORS.gray[700]} />
           </TouchableOpacity>
 
-          <Text style={styles.headerTitle}>攻略</Text>
+          <View style={styles.headerCenter}>
+            <Text style={styles.headerTitle}>攻略</Text>
+          </View>
 
           <TouchableOpacity
             style={[styles.publishBtn, !canPublish() && styles.publishBtnDisabled]}
@@ -338,20 +393,32 @@ export default function CreateArticle() {
               placeholderTextColor={COLORS.gray[400]}
               value={title}
               onChangeText={setTitle}
+              onFocus={() => {
+                // 当标题输入框获得焦点时，关闭富文本工具栏
+                if (showRichToolbar) {
+                  setShowRichToolbar(false);
+                }
+              }}
               autoFocus
             />
           </View>
 
-          {/* 正文输入 */}
-          <View style={styles.contentContainer}>
-            <TextInput
-              style={styles.contentInput}
-              placeholder="分享你的出国攻略和经验...&#10;&#10;可以包括：&#10;• 准备流程和时间线&#10;• 注意事项和避坑指南&#10;• 费用预算和节省技巧&#10;• 个人心得和建议"
-              placeholderTextColor={COLORS.gray[400]}
-              value={content}
-              onChangeText={setContent}
-              multiline
-              textAlignVertical="top"
+          {/* 正文编辑器 */}
+          <View style={styles.editorContainer}>
+            <RichTextEditor
+              ref={editorRef}
+              initialContent={content}
+              onContentChange={setContent}
+              placeholder="分享你的出国攻略和经验..."
+              minHeight={400}
+              onFocus={() => {
+                // 当富文本编辑器获得焦点时，关闭富文本工具栏
+                if (showRichToolbar) {
+                  setShowRichToolbar(false);
+                }
+
+                console.log('showRichToolbar的值',showRichToolbar);
+              }}
             />
           </View>
 
@@ -381,7 +448,18 @@ export default function CreateArticle() {
         </ScrollView>
 
         {/* 底部固定区域：标签展示 + 工具栏 */}
-        <View style={styles.bottomContainer}>
+        <Animated.View 
+          style={[
+            styles.bottomContainer,
+            // 使用动画值来控制 marginBottom，实现平滑过渡
+            { 
+              marginBottom: bottomMarginAnim 
+            }
+          ]}
+          onLayout={(event) => {
+            // 可选：记录底部容器的高度，用于后续计算
+          }}
+        >
           {/* 标签展示区域 */}
           {tags.length > 0 && (
             <View style={styles.tagsDisplayArea}>
@@ -390,9 +468,8 @@ export default function CreateArticle() {
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.tagsScrollContent}
               >
-                {/* 标签显示 */}
-                {tags.map((tag) => (
-                  <View key={tag} style={styles.tagItem}>
+                {tags.map((tag, index) => (
+                  <View key={index} style={styles.tagItem}>
                     <Text style={styles.tagText}>#{tag}</Text>
                     <TouchableOpacity onPress={() => removeTag(tag)}>
                       <Ionicons name="close" size={16} color="#0284C7" />
@@ -413,38 +490,60 @@ export default function CreateArticle() {
               showTag: true,
               showLocation: false,
               showEmoji: false,
+              showRichText: true, // 启用富文本格式按钮
             }}
             onPickImages={handlePickImages}
             onTakePhoto={handleTakePhoto}
             onAddTag={() => setShowTagInput(true)}
+            onToggleRichToolbar={() => {
+              console.log('showRichToolbar的值', showRichToolbar);
+
+              editorRef.current?.blur(); // 让富文本编辑器失焦，关闭 WebView 键盘
+              Keyboard.dismiss(); // 关闭普通键盘
+              setShowRichToolbar(!showRichToolbar); // 切换富文本工具栏
+            }}
             isSaving={isSavingDraft}
             rightText={
-              images.length > 0
-                ? `${images.length}张图片`
-                : ''
+              images.length > 0 ? `${images.length}张图片` : ''
             }
           />
-        </View>
+        </Animated.View>
+      </View>
 
-        {/* 标签输入 Modal */}
-        <TagInput
-          visible={showTagInput}
-          onClose={() => setShowTagInput(false)}
-          onAddTag={(tag) => {
-            if (!tag.trim()) return;
-            if (tags.length >= 5) {
-              Alert.alert('提示', '最多只能添加5个标签');
-              return;
+      {/* 富文本工具栏（从屏幕底部弹出，覆盖层） */}
+      {showRichToolbar && (
+        <View 
+          style={styles.richToolbarOverlay}
+          onLayout={(event) => {
+            // 获取工具栏高度，用于计算 bottomContainer 的 marginBottom
+            let { height } = event.nativeEvent.layout;
+            if (height !== richToolbarHeight) {
+              setRichToolbarHeight(height);
             }
-            if (tags.includes(tag.trim())) {
-              Alert.alert('提示', '该标签已存在');
-              return;
-            }
-            setTags([...tags, tag.trim()]);
           }}
-          currentTags={tags}
-        />
-      </KeyboardAvoidingView>
+        >
+          <RichTextToolbar editorRef={editorRef} />
+        </View>
+      )}
+
+      {/* 标签输入 Modal */}
+      <TagInput
+        visible={showTagInput}
+        onClose={() => setShowTagInput(false)}
+        onAddTag={(tag) => {
+          if (!tag.trim()) return;
+          if (tags.length >= 5) {
+            Alert.alert('提示', '最多只能添加5个标签');
+            return;
+          }
+          if (tags.includes(tag.trim())) {
+            Alert.alert('提示', '该标签已存在');
+            return;
+          }
+          setTags([...tags, tag.trim()]);
+        }}
+        currentTags={tags}
+      />
     </SafeAreaView>
   );
 }
@@ -465,6 +564,13 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.gray[200],
+  },
+  headerCenter: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
   },
   headerTitle: {
     fontSize: 17,
@@ -507,16 +613,10 @@ const styles = StyleSheet.create({
     lineHeight: 28,
   },
 
-  // 正文输入
-  contentContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-  },
-  contentInput: {
-    fontSize: 16,
-    color: COLORS.gray[900],
-    lineHeight: 24,
-    minHeight: 300,
+  // 编辑器容器
+  editorContainer: {
+    flex: 1,
+    backgroundColor: COLORS.white,
   },
 
   // 图片预览区域
@@ -564,6 +664,17 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: COLORS.gray[100],
     backgroundColor: COLORS.white,
+  },
+
+  // 富文本工具栏覆盖层（从屏幕底部弹出）
+  richToolbarOverlay: {
+    position: 'absolute',
+    bottom: 40,
+    left: 0,
+    right: 0,
+    backgroundColor: COLORS.white,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.gray[100],
   },
   tagsScrollContent: {
     gap: 8,

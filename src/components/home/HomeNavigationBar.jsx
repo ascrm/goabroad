@@ -7,11 +7,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 import Avatar from '@/src/components/ui/Avatar';
@@ -22,10 +22,10 @@ import { useAuth } from '@/src/store/hooks';
 const TABS = [
   { id: 'recommend', label: '推荐' },
   { id: 'study', label: '留学' },
-  { id: 'work', label: '工作'},
-  { id: 'visa', label: '签证'},
+  { id: 'work', label: '工作' },
+  { id: 'visa', label: '签证' },
   { id: 'life', label: '生活' },
-  { id: 'guide', label: '其他' },
+  { id: 'other', label: '其他' },
 ];
 
 const HomeNavigationBar = ({ activeTab = 'recommend', onTabChange, onOpenDrawer }) => {

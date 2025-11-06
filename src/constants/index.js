@@ -8,7 +8,7 @@ export { darkTheme, lightTheme, default as theme } from './theme';
 
 // 导出颜色系统
 export {
-    background, border, colors, error, gray, info, primary, special, status, success, text, warning
+    background, border, categoryColors, colors, error, gray, info, primary, special, status, success, text, warning
 } from './colors';
 
 // COLORS 别名导出（方便使用）
@@ -22,7 +22,7 @@ export {
 } from './typography';
 
 // 导出间距系统
-export { avatarSize, BASE_UNIT, componentSpacing, gap, getSpacing, iconSize, layout, margin, padding, spacing, default as spacingConfig } from './spacing';
+export { BASE_UNIT, avatarSize, componentSpacing, gap, getSpacing, iconSize, layout, margin, padding, spacing, default as spacingConfig } from './spacing';
 
 // 导出阴影系统
 export {
