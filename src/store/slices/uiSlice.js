@@ -50,6 +50,14 @@ const initialState = {
   
   // 发布选择器 Modal 状态
   createPostModalVisible: false,
+  
+  // 上传进度状态
+  upload: {
+    isVisible: false,
+    status: 'uploading', // 'uploading', 'success', 'error'
+    message: '',
+    progress: 0,
+  },
 };
 
 // 创建 slice
@@ -148,6 +156,31 @@ const uiSlice = createSlice({
       state.createPostModalVisible = false;
     },
     
+    // 显示上传进度
+    showUploadProgress: (state, action) => {
+      state.upload = {
+        isVisible: true,
+        status: action.payload.status || 'uploading',
+        message: action.payload.message || '',
+        progress: action.payload.progress || 0,
+      };
+    },
+    
+    // 更新上传进度
+    updateUploadProgress: (state, action) => {
+      state.upload.progress = action.payload;
+    },
+    
+    // 隐藏上传进度
+    hideUploadProgress: (state) => {
+      state.upload = {
+        isVisible: false,
+        status: 'uploading',
+        message: '',
+        progress: 0,
+      };
+    },
+    
     // 重置 UI 状态
     resetUI: (state) => {
       return initialState;
@@ -170,6 +203,9 @@ export const {
   setUnreadCount,
   openCreatePostModal,
   closeCreatePostModal,
+  showUploadProgress,
+  updateUploadProgress,
+  hideUploadProgress,
   resetUI,
 } = uiSlice.actions;
 

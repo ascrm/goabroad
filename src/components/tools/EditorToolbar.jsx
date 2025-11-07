@@ -65,6 +65,7 @@ export default function EditorToolbar({
   onToggleRichToolbar,
   rightText = '',
   isSaving = false,
+  disabled = false, // 新增：是否禁用工具栏按钮
   style,
 }) {
   return (
@@ -76,9 +77,14 @@ export default function EditorToolbar({
           <TouchableOpacity
             style={styles.toolbarBtn}
             onPress={onPickImages}
+            disabled={disabled}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Ionicons name="image-outline" size={24} color="#00A6F0" />
+            <Ionicons 
+              name="image-outline" 
+              size={24} 
+              color={disabled ? COLORS.gray[300] : "#00A6F0"} 
+            />
           </TouchableOpacity>
         )}
 
@@ -87,9 +93,14 @@ export default function EditorToolbar({
           <TouchableOpacity
             style={styles.toolbarBtn}
             onPress={onTakePhoto}
+            disabled={disabled}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Ionicons name="camera-outline" size={24} color="#00A6F0" />
+            <Ionicons 
+              name="camera-outline" 
+              size={24} 
+              color={disabled ? COLORS.gray[300] : "#00A6F0"} 
+            />
           </TouchableOpacity>
         )}
 

@@ -1,356 +1,96 @@
-我先看一下相关文件的代码，了解当前的实现情况。
-
-[3 tools called]
-
-好的，我理解问题了。现在的核心问题是：
-
-1. **点击字母图标后，键盘没有消失，富文本工具栏也没有显示**
-2. 需要实现键盘和富文本工具栏的**平滑切换**
-
-## 🎯 问题分析
-
-当前代码在 `handleToggleRichToolbar` 中调用了 `editorRef.current?.focus()`，这会**重新唤起键盘**，导致键盘无法关闭。
-
-另外，由于使用的是 WebView 编辑器（`react-native-pell-rich-editor`），键盘的控制逻辑与原生 TextInput 不同。
+根据你的需求，我来帮你转化为清晰的 AI 提示词：
 
 ---
 
-## ✅ 解决方案
+## AI 开发任务提示词
 
-我提供**两个方案**，你可以根据效果选择：
+### 任务概述
+需要重构 `app/community/article/create.jsx` 中的图片上传和展示逻辑，将图片从外部预览区移入富文本编辑器内部，实现图文混排效果。
 
-### 🔥 方案一：使用 KeyboardAvoidingView + Animated 实现平滑切换（推荐）
+### 当前实现分析
 
-这个方案会让富文本工具栏的显示/隐藏更加流畅，类似键盘的动画效果。
+**现状问题：**
+1. 点击工具栏的照片图标后，图片仅保存在本地 state（`images` 数组）
+2. 图片在富文本编辑器外部独立展示（第 426-445 行的预览区域）
+3. 图片与正文内容分离，无法实现图文混排
+4. 用户无法控制图片在文章中的插入位置
 
-**核心改动点：**
+### 核心需求
 
-#### 1. 修改 `create.jsx` 的状态和逻辑
+#### 需求 1：即时上传逻辑
+- **触发时机**：用户点击工具栏的照片图标，并从相册/相机选择完图片后
+- **上传流程**：
+  1. 立即调用文件上传 API 将图片上传到服务器
+  2. 显示上传进度指示器（加载状态）
+  3. 上传成功后获取图片的远程 URL
+  4. 将远程 URL 插入到富文本编辑器中
 
+#### 需求 2：富文本内嵌展示
+- **展示位置**：图片应插入到富文本编辑器的当前光标位置
+- **展示效果**：
+  1. 图片作为 HTML `<img>` 标签嵌入到编辑器内容中
+  2. 图片与文字可以混排（用户可在图片前后输入文字）
+  3. 图片在编辑器中可见可编辑（可删除、可调整位置）
+  4. 最终发布时，图片 URL 包含在正文的 HTML 内容中
+
+### 技术实现要点
+
+#### 1. 文件上传 API 集成
+- 检查项目中是否已有文件上传 API（查看 `src/services/api/modules/` 目录）
+- 如果没有，需要创建文件上传服务，参考 API 文档 `docs/API接口文档/文件模块.md`
+- 上传方法应支持 FormData 格式，返回图片的远程 URL
+
+#### 2. 富文本编辑器能力扩展
+- 查看 `RichTextEditor` 组件（`src/components/community/create/RichTextEditor.jsx`）是否已有插入图片的方法
+- 如果没有，需要添加 `insertImage(url)` 方法，调用底层 RichEditor 的插入图片功能
+- 该方法应该将图片插入到当前光标位置
+
+#### 3. UI/UX 优化
+- **上传中状态**：显示加载指示器或进度条，禁用重复上传
+- **错误处理**：上传失败时显示错误提示，允许用户重试
+- **多图片支持**：支持一次选择多张图片，依次上传并插入
+- **图片限制**：保持原有的 9 张图片限制（可选，根据产品需求调整）
+
+#### 4. 需要移除的代码
+- 移除独立的图片预览区域（第 426-445 行）
+- 移除 `images` state 数组（第 49 行），因为图片已嵌入 HTML 内容
+- 移除图片相关的草稿保存逻辑（或调整为从 HTML 中提取图片）
+- 更新工具栏右侧的图片计数逻辑（或直接移除，因为图片已在内容中）
+
+#### 5. 需要修改的函数
+- **`handlePickImages`**：改为上传图片并插入编辑器
+- **`handleTakePhoto`**：改为上传图片并插入编辑器
+- **`handlePublish`**：移除 `mediaUrls` 字段，图片 URL 已包含在 `content` HTML 中
+
+### 预期最终效果
+
+**用户操作流程：**
+1. 用户在编辑器中输入文字："这是第一段内容"
+2. 用户将光标移到文字末尾，点击工具栏的照片图标
+3. 用户选择 2 张图片
+4. 显示"上传中..."指示器
+5. 第 1 张图片上传完成，自动插入到光标位置
+6. 第 2 张图片上传完成，自动插入到第 1 张图片后面
+7. 用户继续输入文字："这是第二段内容"
+8. 最终效果：文字-图片-图片-文字，图文混排
+
+**发布时的数据结构：**
 ```javascript
-import { Animated, Keyboard } from 'react-native';
-
-// 在组件内添加动画值
-const [keyboardHeight, setKeyboardHeight] = useState(0);
-const toolbarAnimation = useRef(new Animated.Value(0)).current;
-
-// 修改键盘监听逻辑
-useEffect(() => {
-  const keyboardWillShowListener = Keyboard.addListener(
-    Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-    (e) => {
-      setKeyboardHeight(e.endCoordinates.height);
-      // 键盘显示时，隐藏富文本工具栏
-      if (showRichToolbar) {
-        setShowRichToolbar(false);
-      }
-    }
-  );
-
-  const keyboardWillHideListener = Keyboard.addListener(
-    Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-    () => {
-      setKeyboardHeight(0);
-    }
-  );
-
-  return () => {
-    keyboardWillShowListener.remove();
-    keyboardWillHideListener.remove();
-  };
-}, [showRichToolbar]);
-
-// 修改富文本工具栏切换逻辑
-const handleToggleRichToolbar = () => {
-  if (showRichToolbar) {
-    // 关闭富文本工具栏，显示键盘
-    setShowRichToolbar(false);
-    // 延迟聚焦，等工具栏消失后再显示键盘
-    setTimeout(() => {
-      editorRef.current?.focus();
-    }, 100);
-  } else {
-    // 先让编辑器失焦，关闭键盘
-    editorRef.current?.blur();
-    Keyboard.dismiss();
-    // 等键盘完全消失后再显示工具栏
-    setTimeout(() => {
-      setShowRichToolbar(true);
-    }, Platform.OS === 'ios' ? 100 : 200);
-  }
-};
-
-// 富文本工具栏的动画效果
-useEffect(() => {
-  Animated.timing(toolbarAnimation, {
-    toValue: showRichToolbar ? 1 : 0,
-    duration: 250,
-    useNativeDriver: true,
-  }).start();
-}, [showRichToolbar]);
-
-// 富文本工具栏的动画样式
-const toolbarAnimatedStyle = {
-  transform: [
-    {
-      translateY: toolbarAnimation.interpolate({
-        inputRange: [0, 1],
-        outputRange: [200, 0], // 从下方滑入
-      }),
-    },
-  ],
-  opacity: toolbarAnimation,
-};
+{
+  contentType: 'GUIDE',
+  title: '标题',
+  content: '<p>这是第一段内容</p><img src="https://cdn.example.com/image1.jpg"><img src="https://cdn.example.com/image2.jpg"><p>这是第二段内容</p>',
+  // 不再需要单独的 mediaUrls 字段
+}
 ```
 
-#### 2. 修改富文本工具栏的渲染
-
-```javascript
-{/* 富文本工具栏（替换键盘位置） */}
-{showRichToolbar && (
-  <Animated.View style={[styles.richToolbarContainer, toolbarAnimatedStyle]}>
-    <RichTextToolbar
-      editorRef={editorRef}
-      onDismiss={() => {
-        setShowRichToolbar(false);
-        // 关闭工具栏后，重新聚焦编辑器
-        setTimeout(() => {
-          editorRef.current?.focus();
-        }, 100);
-      }}
-    />
-  </Animated.View>
-)}
-```
-
-#### 3. 添加样式
-
-```javascript
-richToolbarContainer: {
-  position: 'absolute',
-  bottom: 0,
-  left: 0,
-  right: 0,
-  zIndex: 999,
-},
-```
+### 注意事项
+1. 确保上传过程中用户体验流畅，避免阻塞编辑
+2. 处理网络错误和上传失败的情况
+3. 考虑图片压缩（可能已在 ImagePicker 配置中设置）
+4. 保持代码的可维护性和可读性
+5. 测试多图片上传、大图片上传等边界情况
 
 ---
 
-### 🚀 方案二：简化版（更简单，但无动画）
-
-如果你不需要动画效果，可以用更简单的方式：
-
-#### 修改 `create.jsx`
-
-```javascript
-// 修改富文本工具栏切换逻辑
-const handleToggleRichToolbar = () => {
-  if (showRichToolbar) {
-    // 关闭富文本工具栏
-    setShowRichToolbar(false);
-    // 延迟聚焦编辑器，显示键盘
-    setTimeout(() => {
-      editorRef.current?.focus();
-    }, 150);
-  } else {
-    // 先失焦编辑器
-    editorRef.current?.blur();
-    // 关闭键盘
-    Keyboard.dismiss();
-    // 延迟显示富文本工具栏
-    setTimeout(() => {
-      setShowRichToolbar(true);
-    }, 250); // Android 需要更长的延迟
-  }
-};
-
-// 修改编辑器的 onFocus 回调
-<RichTextEditor
-  ref={editorRef}
-  initialContent={content}
-  onContentChange={setContent}
-  placeholder="分享你的出国攻略和经验..."
-  minHeight={400}
-  onFocus={() => {
-    // 编辑器获得焦点时，确保工具栏关闭
-    if (showRichToolbar) {
-      setShowRichToolbar(false);
-    }
-  }}
-/>
-```
-
-#### 修改富文本工具栏渲染（绝对定位）
-
-```javascript
-{/* 富文本工具栏 - 固定在底部 */}
-{showRichToolbar && (
-  <View style={styles.richToolbarWrapper}>
-    <RichTextToolbar
-      editorRef={editorRef}
-      onDismiss={() => {
-        setShowRichToolbar(false);
-        setTimeout(() => {
-          editorRef.current?.focus();
-        }, 100);
-      }}
-    />
-  </View>
-)}
-```
-
-#### 添加样式
-
-```javascript
-richToolbarWrapper: {
-  position: 'absolute',
-  bottom: 0,
-  left: 0,
-  right: 0,
-  backgroundColor: COLORS.white,
-  zIndex: 1000,
-  elevation: 8, // Android 阴影
-  shadowColor: '#000', // iOS 阴影
-  shadowOffset: { width: 0, height: -2 },
-  shadowOpacity: 0.1,
-  shadowRadius: 4,
-},
-```
-
----
-
-### 🔧 方案三：完全不使用 focus/blur（最稳定）
-
-如果方案一和二都不理想，可以完全移除编辑器的 focus/blur 调用：
-
-```javascript
-const handleToggleRichToolbar = () => {
-  if (showRichToolbar) {
-    // 关闭富文本工具栏
-    setShowRichToolbar(false);
-  } else {
-    // 关闭键盘
-    Keyboard.dismiss();
-    // 延迟显示工具栏
-    setTimeout(() => {
-      setShowRichToolbar(true);
-    }, Platform.OS === 'ios' ? 150 : 300);
-  }
-};
-
-// 用户点击编辑器时自动隐藏工具栏（通过 onFocus）
-<RichTextEditor
-  ref={editorRef}
-  initialContent={content}
-  onContentChange={setContent}
-  placeholder="分享你的出国攻略和经验..."
-  minHeight={400}
-  onFocus={() => setShowRichToolbar(false)}
-/>
-```
-
----
-
-## 📋 完整代码示例（方案二 - 推荐）
-
-由于你在 **ask mode**，我无法直接修改文件。以下是完整的修改代码，你可以复制应用：
-
-### 修改 `app/community/article/create.jsx`
-
-找到以下几个地方并修改：
-
-#### 1. 修改 `handleToggleRichToolbar` 函数（约320行）
-
-```javascript
-// 切换富文本工具栏
-const handleToggleRichToolbar = () => {
-  if (showRichToolbar) {
-    // 关闭富文本工具栏，显示键盘
-    setShowRichToolbar(false);
-    setTimeout(() => {
-      editorRef.current?.focus();
-    }, 100);
-  } else {
-    // 关闭键盘，显示富文本工具栏
-    editorRef.current?.blur();
-    Keyboard.dismiss();
-    setTimeout(() => {
-      setShowRichToolbar(true);
-    }, Platform.OS === 'ios' ? 150 : 300);
-  }
-};
-```
-
-#### 2. 修改 `RichTextEditor` 组件（约387行）
-
-```javascript
-{/* 正文编辑器 */}
-<View style={styles.editorContainer}>
-  <RichTextEditor
-    ref={editorRef}
-    initialContent={content}
-    onContentChange={setContent}
-    placeholder="分享你的出国攻略和经验..."
-    minHeight={400}
-    onFocus={() => {
-      // 编辑器获得焦点时，隐藏富文本工具栏
-      if (showRichToolbar) {
-        setShowRichToolbar(false);
-      }
-    }}
-  />
-</View>
-```
-
-#### 3. 修改富文本工具栏渲染（约489行）
-
-```javascript
-{/* 富文本工具栏（固定在底部） */}
-{showRichToolbar && (
-  <View style={styles.richToolbarWrapper}>
-    <RichTextToolbar
-      editorRef={editorRef}
-      onDismiss={() => {
-        setShowRichToolbar(false);
-        setTimeout(() => {
-          editorRef.current?.focus();
-        }, 100);
-      }}
-    />
-  </View>
-)}
-```
-
-#### 4. 在 styles 中添加新样式（约635行后）
-
-```javascript
-richToolbarWrapper: {
-  position: 'absolute',
-  bottom: 0,
-  left: 0,
-  right: 0,
-  backgroundColor: COLORS.white,
-  zIndex: 1000,
-  elevation: 8, // Android 阴影
-  shadowColor: '#000', // iOS 阴影
-  shadowOffset: { width: 0, height: -2 },
-  shadowOpacity: 0.1,
-  shadowRadius: 4,
-},
-```
-
----
-
-## ⚡ 关键点总结
-
-1. **blur() 是关键**：在显示工具栏前，必须先让编辑器失焦
-2. **延迟很重要**：Android 需要更长的延迟（300ms）以确保键盘完全消失
-3. **绝对定位**：富文本工具栏使用绝对定位，覆盖在键盘位置
-4. **双向控制**：
-   - 点击字母图标 → 隐藏键盘 + 显示工具栏
-   - 点击编辑器 → 隐藏工具栏 + 显示键盘
-
----
-
-请切换到 **agent mode** 让我帮你应用这些更改，或者你可以手动复制上面的代码进行修改。建议先使用**方案二**（简化版），如果效果满意就不需要复杂的动画。
+这个提示词涵盖了需求背景、技术要点、实现细节和预期效果，应该能够指导 AI 完成完整的功能开发。

@@ -75,6 +75,14 @@ const RichTextEditor = forwardRef(({
     insertLink: (title, url) => {
       editorRef.current?.insertLink(title, url);
     },
+    // 插入图片
+    insertImage: (url) => {
+      editorRef.current?.insertImage(url);
+    },
+    // 插入 HTML
+    insertHTML: (html) => {
+      editorRef.current?.insertHTML(html);
+    },
     // 撤销
     undo: () => {
       editorRef.current?.sendAction(actions.undo, 'result');
@@ -107,6 +115,15 @@ const RichTextEditor = forwardRef(({
           line-height: 1.6;
           padding: 12px;
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          
+          /* 图片样式 */
+          img {
+            max-width: 100% !important;
+            height: auto !important;
+            display: block;
+            margin: 12px 0;
+            border-radius: 8px;
+          }
         `,
       }}
       useContainer={true}

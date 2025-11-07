@@ -1,6 +1,11 @@
 /**
- * 写攻略页面
- * 功能：标题 + 正文编辑器（富文本） + 标签 + 分区
+ * 写攻略页面 - 重构版
+ * 功能：标题 + 富文本编辑器（支持图文混排） + 标签 + 富文本工具栏
+ * 特性：
+ *  - 图文混排：图片直接插入编辑器中
+ *  - 富文本格式：标题、加粗、列表、引用等
+ *  - 自动草稿保存
+ *  - 图片即时上传
  */
 
 import { Ionicons } from '@expo/vector-icons';
@@ -8,12 +13,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Animated,
-  Image,
   Keyboard,
   Platform,
   SafeAreaView,
@@ -22,105 +26,91 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 
 import RichTextEditor from '@/src/components/community/create/RichTextEditor';
 import RichTextToolbar from '@/src/components/community/create/RichTextToolbar';
 import TagInput from '@/src/components/community/create/TagInput';
 import EditorToolbar from '@/src/components/tools/EditorToolbar';
+import { UploadProgress } from '@/src/components/ui';
 import { COLORS } from '@/src/constants';
-import { useAppDispatch, useUserInfo } from '@/src/store/hooks';
+import { uploadPostImage } from '@/src/services/api/modules/uploadApi';
+import { useAppDispatch, useAppSelector } from '@/src/store/hooks';
 import { publishPost } from '@/src/store/slices/communitySlice';
+import { hideUploadProgress, showUploadProgress } from '@/src/store/slices/uiSlice';
 
 const DRAFT_KEY = 'community_article_draft';
 
 export default function CreateArticle() {
   const router = useRouter();
   const dispatch = useAppDispatch();
-  const userInfo = useUserInfo();
+  
+  // Refs
   const titleInputRef = useRef(null);
-  const editorRef = useRef(null); // 富文本编辑器引用
+  const editorRef = useRef(null);
+  const scrollViewRef = useRef(null);
+  const bottomMarginAnim = useRef(new Animated.Value(0)).current;
 
-  // 状态管理
+  // Redux state
+  const uploadState = useAppSelector((state) => state.ui.upload);
+  const isUploading = uploadState.isVisible && uploadState.status === 'uploading';
+
+  // Local state
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [tags, setTags] = useState([]);
-  const [images, setImages] = useState([]); // 图片数组
   const [showTagInput, setShowTagInput] = useState(false);
-  const [showRichToolbar, setShowRichToolbar] = useState(false); // 富文本工具栏显示状态
+  const [showRichToolbar, setShowRichToolbar] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
-  const [keyboardHeight, setKeyboardHeight] = useState(0); // 键盘高度
-  const [richToolbarHeight, setRichToolbarHeight] = useState(0); // 富文本工具栏高度
-  
-  // 动画值：底部容器的 marginBottom
-  const bottomMarginAnim = useRef(new Animated.Value(0)).current;
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [richToolbarHeight, setRichToolbarHeight] = useState(0);
 
-  // 从草稿恢复
+  // ==================== 生命周期 ====================
+
+  // 初始化：加载草稿、自动聚焦
   useEffect(() => {
     loadDraft();
+    setTimeout(() => titleInputRef.current?.focus(), 300);
   }, []);
-
-  // 监听富文本工具栏显示/隐藏，执行动画
-  useEffect(() => {
-    Animated.timing(bottomMarginAnim, {
-      toValue: showRichToolbar ? richToolbarHeight : 0,
-      duration: 250, // 动画时长 250ms，与工具栏滑入动画保持一致
-      useNativeDriver: false, // marginBottom 不支持 native driver
-    }).start();
-  }, [showRichToolbar, richToolbarHeight]);
 
   // 自动保存草稿
   useEffect(() => {
-    if (title || content || images.length > 0) {
-      const timer = setTimeout(() => {
-        saveDraft();
-      }, 2000);
+    if (title || content) {
+      const timer = setTimeout(saveDraft, 2000);
       return () => clearTimeout(timer);
     }
-  }, [title, content, tags, images]);
+  }, [title, content, tags]);
 
-  // 自动聚焦
+  // 富文本工具栏显示动画
   useEffect(() => {
-    setTimeout(() => {
-      titleInputRef.current?.focus();
-    }, 300);
-  }, []);
+    Animated.timing(bottomMarginAnim, {
+      toValue: showRichToolbar ? richToolbarHeight : 0,
+      duration: 250,
+      useNativeDriver: false,
+    }).start();
+  }, [showRichToolbar, richToolbarHeight]);
 
-  // 监听键盘事件（自定义实现 KeyboardAvoidingView 的 padding behavior）
+  // 键盘监听（仅 iOS）
   useEffect(() => {
-    // 只在 iOS 上启用（Android 不需要）
     if (Platform.OS !== 'ios') return;
 
-    // 键盘显示事件
-    const keyboardWillShow = Keyboard.addListener(
-      'keyboardWillShow',
-      (e) => {
-        // 获取键盘高度
-        let height = e.endCoordinates.height;
-        height = height - 40;
-        setKeyboardHeight(height);
-      }
-    );
+    const showListener = Keyboard.addListener('keyboardWillShow', (e) => {
+      setKeyboardHeight(e.endCoordinates.height - 40);
+    });
+    const hideListener = Keyboard.addListener('keyboardWillHide', () => {
+      setKeyboardHeight(0);
+    });
 
-    // 键盘隐藏事件
-    const keyboardWillHide = Keyboard.addListener(
-      'keyboardWillHide',
-      () => {
-        setKeyboardHeight(0);
-      }
-    );
-
-    // 清理监听器
     return () => {
-      keyboardWillShow.remove();
-      keyboardWillHide.remove();
+      showListener.remove();
+      hideListener.remove();
     };
   }, []);
 
+  // ==================== 草稿管理 ====================
 
-  // 加载草稿
   const loadDraft = async () => {
     try {
       const draft = await AsyncStorage.getItem(DRAFT_KEY);
@@ -134,45 +124,138 @@ export default function CreateArticle() {
               setTitle(data.title || '');
               setContent(data.content || '');
               setTags(data.tags || []);
-              setImages(data.images || []);
             },
           },
         ]);
       }
     } catch (error) {
-      console.error('加载草稿失败:', error);
+      console.error('❌ 加载草稿失败:', error);
     }
   };
 
-  // 保存草稿
   const saveDraft = async () => {
     try {
       setIsSavingDraft(true);
-      const draft = {
-        title,
-        content,
-        tags,
-        images,
-        savedAt: new Date().toISOString(),
-      };
+      const draft = { title, content, tags, savedAt: new Date().toISOString() };
       await AsyncStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
     } catch (error) {
-      console.error('保存草稿失败:', error);
+      console.error('❌ 保存草稿失败:', error);
     } finally {
       setTimeout(() => setIsSavingDraft(false), 500);
     }
   };
 
-  // 清除草稿
   const clearDraft = async () => {
     try {
       await AsyncStorage.removeItem(DRAFT_KEY);
     } catch (error) {
-      console.error('清除草稿失败:', error);
+      console.error('❌ 清除草稿失败:', error);
     }
   };
 
-  // 验证表单
+  // ==================== 图片上传 ====================
+
+  const requestPermissions = async () => {
+    const [cameraPermission, mediaPermission] = await Promise.all([
+      ImagePicker.requestCameraPermissionsAsync(),
+      ImagePicker.requestMediaLibraryPermissionsAsync(),
+    ]);
+
+    if (cameraPermission.status !== 'granted' || mediaPermission.status !== 'granted') {
+      Alert.alert('权限不足', '需要相机和相册权限才能上传图片');
+      return false;
+    }
+    return true;
+  };
+
+  const uploadAndInsertImage = useCallback(async (imageAsset) => {
+    try {
+      editorRef.current?.blur();
+      Keyboard.dismiss();
+      dispatch(showUploadProgress({
+        status: 'uploading',
+        message: '图片上传中...',
+        progress: 0,
+      }));
+
+      const file = {
+        uri: imageAsset.uri,
+        name: imageAsset.fileName || imageAsset.uri.split('/').pop(),
+        type: imageAsset.mimeType || 'image/jpeg',
+      };
+
+      const result = await uploadPostImage(file);
+      const imageUrl = result.data;
+
+      dispatch(showUploadProgress({
+        status: 'success',
+        message: '上传成功',
+        progress: 100,
+      }));
+
+      // 插入到富文本编辑器
+      editorRef.current?.insertImage(imageUrl);
+        editorRef.current?.insertHTML('<p><br></p>');
+        editorRef.current?.focus();
+      setTimeout(() => {
+
+        dispatch(hideUploadProgress())
+      }, 1000);
+      return true;
+    } catch (error) {
+      console.error('❌ 图片上传失败:', error);
+      dispatch(showUploadProgress({
+        status: 'error',
+        message: '上传失败',
+        progress: 0,
+      }));
+      setTimeout(() => dispatch(hideUploadProgress()), 2000);
+      return false;
+    }
+  }, [dispatch]);
+
+  const handleTakePhoto = async () => {
+    if (!(await requestPermissions())) return;
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets?.[0]) {
+      await uploadAndInsertImage(result.assets[0]);
+    }
+  };
+
+  const handlePickImages = async () => {
+    if (!(await requestPermissions())) return;
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: true,
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets) {
+      for (const asset of result.assets) {
+        const success = await uploadAndInsertImage(asset);
+        if (!success && result.assets.indexOf(asset) < result.assets.length - 1) {
+          const shouldContinue = await new Promise((resolve) => {
+            Alert.alert('上传失败', '是否继续上传剩余图片？', [
+              { text: '取消', onPress: () => resolve(false), style: 'cancel' },
+              { text: '继续', onPress: () => resolve(true) },
+            ]);
+          });
+          if (!shouldContinue) break;
+        }
+      }
+    }
+  };
+
+  // ==================== 发布逻辑 ====================
+
   const validateForm = () => {
     if (!title.trim()) {
       Alert.alert('提示', '请输入标题');
@@ -193,40 +276,27 @@ export default function CreateArticle() {
     return true;
   };
 
-  // 发布攻略
   const handlePublish = async () => {
     if (!validateForm()) return;
 
     setIsPublishing(true);
 
     try {
-      // 发布攻略
-      console.log('📤 [发布流程] 发布攻略');
-
       const postData = {
-        contentType: 'GUIDE', // 新API: GUIDE(写攻略)
+        contentType: 'GUIDE',
         title: title.trim(),
         content: content.trim(),
         status: 'PUBLISHED',
-        mediaUrls: images, // 新API: 使用mediaUrls替代images和videos
-        category: tags[0] || '攻略', // 新API: 使用category替代tags
-        tags: tags, // 标签数组
-        allowComment: true, // 新API: 是否允许评论
+        category: tags[0] || '攻略',
+        tags: tags,
+        allowComment: true,
       };
 
-      console.log('📤 [发布攻略] 准备发布:', postData);
-
       const result = await dispatch(publishPost(postData)).unwrap();
-
-      console.log('✅ [发布攻略] 发布成功:', result);
-
       await clearDraft();
 
       Alert.alert('发布成功', '你的攻略已成功发布！', [
-        {
-          text: '返回',
-          onPress: () => router.back(),
-        },
+        { text: '返回', onPress: () => router.back() },
         {
           text: '查看',
           onPress: () => {
@@ -239,122 +309,56 @@ export default function CreateArticle() {
         },
       ]);
     } catch (error) {
-      console.error('❌ [发布攻略] 发布失败:', error);
-
-      let errorMessage = '发布失败，请重试';
-      if (typeof error === 'string') {
-        errorMessage = error;
-      } else if (error?.message) {
-        errorMessage = error.message;
-      } else if (error?.data?.message) {
-        errorMessage = error.data.message;
-      }
-
+      console.error('❌ 发布失败:', error);
+      const errorMessage = error?.message || error?.data?.message || '发布失败，请重试';
       Alert.alert('发布失败', errorMessage, [{ text: '确定', style: 'cancel' }]);
     } finally {
       setIsPublishing(false);
     }
   };
 
-  // 取消发布
   const handleCancel = () => {
-    if (title || content || images.length > 0 || tags.length > 0) {
+    if (title || content || tags.length > 0) {
       Alert.alert('提示', '是否放弃当前编辑的内容？', [
         { text: '继续编辑', style: 'cancel' },
-        {
-          text: '放弃',
-          style: 'destructive',
-          onPress: () => router.back(),
-        },
+        { text: '放弃', style: 'destructive', onPress: () => router.back() },
       ]);
     } else {
       router.back();
     }
   };
 
-  // 发布按钮可用性
+  // ==================== 辅助方法 ====================
+
   const canPublish = () => {
     return !isPublishing && title.trim().length >= 5 && content.trim().length >= 20;
   };
 
-  // 移除标签
   const removeTag = (tag) => {
     setTags(tags.filter((t) => t !== tag));
   };
 
-  // ========== 图片上传功能 ==========
-  
-  // 请求相机和相册权限
-  const requestPermissions = async () => {
-    const cameraPermission = await ImagePicker.requestCameraPermissionsAsync();
-    const mediaPermission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    
-    if (cameraPermission.status !== 'granted' || mediaPermission.status !== 'granted') {
-      Alert.alert('权限不足', '需要相机和相册权限才能上传图片');
-      return false;
-    }
-    return true;
+  const handleTitleFocus = () => {
+    if (showRichToolbar) setShowRichToolbar(false);
   };
 
-  // 拍照
-  const handleTakePhoto = async () => {
-    const hasPermission = await requestPermissions();
-    if (!hasPermission) return;
-
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets?.[0]) {
-      if (images.length >= 9) {
-        Alert.alert('提示', '最多只能上传9张图片');
-        return;
-      }
-      setImages([...images, result.assets[0].uri]);
-    }
+  const handleEditorFocus = () => {
+    if (showRichToolbar) setShowRichToolbar(false);
   };
 
-  // 从相册选择图片
-  const handlePickImages = async () => {
-    const hasPermission = await requestPermissions();
-    if (!hasPermission) return;
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsMultipleSelection: true,
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets) {
-      const newImages = result.assets.map(asset => asset.uri);
-      const totalImages = [...images, ...newImages];
-      
-      if (totalImages.length > 9) {
-        Alert.alert('提示', `最多只能上传9张图片，已选择${totalImages.length}张`);
-        setImages(totalImages.slice(0, 9));
-      } else {
-        setImages(totalImages);
-      }
-    }
+  const handleToggleRichToolbar = () => {
+    editorRef.current?.blur();
+    Keyboard.dismiss();
+    setShowRichToolbar(!showRichToolbar);
   };
 
-  // 删除图片
-  const removeImage = (index) => {
-    setImages(images.filter((_, i) => i !== index));
-  };
+  // ==================== 渲染 ====================
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
-      <View 
-        style={[
-          styles.keyboardView,
-          { paddingBottom: keyboardHeight } // 动态设置底部内边距
-        ]}
-      >
+      
+      <View style={[styles.keyboardView, { paddingBottom: keyboardHeight }]}>
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={handleCancel} hitSlop={12}>
@@ -378,11 +382,15 @@ export default function CreateArticle() {
           </TouchableOpacity>
         </View>
 
-        {/* 主输入区 */}
+        {/* 主内容区 */}
         <ScrollView
+          ref={scrollViewRef}
           style={styles.content}
+          contentContainerStyle={{ flexGrow: 1 }}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          scrollEnabled={true}
+          nestedScrollEnabled={true}
         >
           {/* 标题输入 */}
           <View style={styles.titleContainer}>
@@ -393,17 +401,12 @@ export default function CreateArticle() {
               placeholderTextColor={COLORS.gray[400]}
               value={title}
               onChangeText={setTitle}
-              onFocus={() => {
-                // 当标题输入框获得焦点时，关闭富文本工具栏
-                if (showRichToolbar) {
-                  setShowRichToolbar(false);
-                }
-              }}
+              onFocus={handleTitleFocus}
               autoFocus
             />
           </View>
 
-          {/* 正文编辑器 */}
+          {/* 富文本编辑器 */}
           <View style={styles.editorContainer}>
             <RichTextEditor
               ref={editorRef}
@@ -411,60 +414,22 @@ export default function CreateArticle() {
               onContentChange={setContent}
               placeholder="分享你的出国攻略和经验..."
               minHeight={400}
-              onFocus={() => {
-                // 当富文本编辑器获得焦点时，关闭富文本工具栏
-                if (showRichToolbar) {
-                  setShowRichToolbar(false);
-                }
-
-                console.log('showRichToolbar的值',showRichToolbar);
-              }}
+              onFocus={handleEditorFocus}
             />
           </View>
-
-          {/* 图片预览区域 */}
-          {images.length > 0 && (
-            <View style={styles.previewContainer}>
-              <View style={styles.imagesPreview}>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  {images.map((uri, index) => (
-                    <View key={index} style={styles.imageWrapper}>
-                      <Image source={{ uri }} style={styles.previewImage} />
-                      <TouchableOpacity
-                        style={styles.removeBtn}
-                        onPress={() => removeImage(index)}
-                      >
-                        <Ionicons name="close-circle" size={24} color="#EF4444" />
-                      </TouchableOpacity>
-                    </View>
-                  ))}
-                </ScrollView>
-                <Text style={styles.mediaCount}>{images.length}/9 张图片</Text>
-              </View>
-            </View>
-          )}
 
           <View style={{ height: 100 }} />
         </ScrollView>
 
-        {/* 底部固定区域：标签展示 + 工具栏 */}
-        <Animated.View 
-          style={[
-            styles.bottomContainer,
-            // 使用动画值来控制 marginBottom，实现平滑过渡
-            { 
-              marginBottom: bottomMarginAnim 
-            }
-          ]}
-          onLayout={(event) => {
-            // 可选：记录底部容器的高度，用于后续计算
-          }}
+        {/* 底部区域：标签 + 工具栏 */}
+        <Animated.View
+          style={[styles.bottomContainer, { marginBottom: bottomMarginAnim }]}
         >
-          {/* 标签展示区域 */}
+          {/* 标签展示 */}
           {tags.length > 0 && (
             <View style={styles.tagsDisplayArea}>
-              <ScrollView 
-                horizontal 
+              <ScrollView
+                horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.tagsScrollContent}
               >
@@ -480,7 +445,7 @@ export default function CreateArticle() {
             </View>
           )}
 
-          {/* 底部工具栏 */}
+          {/* 工具栏 */}
           <EditorToolbar
             config={{
               showImage: true,
@@ -490,33 +455,24 @@ export default function CreateArticle() {
               showTag: true,
               showLocation: false,
               showEmoji: false,
-              showRichText: true, // 启用富文本格式按钮
+              showRichText: true,
             }}
             onPickImages={handlePickImages}
             onTakePhoto={handleTakePhoto}
             onAddTag={() => setShowTagInput(true)}
-            onToggleRichToolbar={() => {
-              console.log('showRichToolbar的值', showRichToolbar);
-
-              editorRef.current?.blur(); // 让富文本编辑器失焦，关闭 WebView 键盘
-              Keyboard.dismiss(); // 关闭普通键盘
-              setShowRichToolbar(!showRichToolbar); // 切换富文本工具栏
-            }}
+            onToggleRichToolbar={handleToggleRichToolbar}
             isSaving={isSavingDraft}
-            rightText={
-              images.length > 0 ? `${images.length}张图片` : ''
-            }
+            disabled={isUploading}
           />
         </Animated.View>
       </View>
 
-      {/* 富文本工具栏（从屏幕底部弹出，覆盖层） */}
+      {/* 富文本工具栏 */}
       {showRichToolbar && (
-        <View 
+        <View
           style={styles.richToolbarOverlay}
-          onLayout={(event) => {
-            // 获取工具栏高度，用于计算 bottomContainer 的 marginBottom
-            let { height } = event.nativeEvent.layout;
+          onLayout={(e) => {
+            const { height } = e.nativeEvent.layout;
             if (height !== richToolbarHeight) {
               setRichToolbarHeight(height);
             }
@@ -544,9 +500,19 @@ export default function CreateArticle() {
         }}
         currentTags={tags}
       />
+
+      {/* 上传进度 */}
+      <UploadProgress
+        visible={uploadState.isVisible}
+        status={uploadState.status}
+        message={uploadState.message}
+        progress={uploadState.progress}
+      />
     </SafeAreaView>
   );
 }
+
+// ==================== 样式 ====================
 
 const styles = StyleSheet.create({
   container: {
@@ -556,6 +522,8 @@ const styles = StyleSheet.create({
   keyboardView: {
     flex: 1,
   },
+  
+  // Header
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -567,10 +535,7 @@ const styles = StyleSheet.create({
   },
   headerCenter: {
     flex: 1,
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 16,
   },
   headerTitle: {
     fontSize: 17,
@@ -594,11 +559,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.white,
   },
+
+  // Content
   content: {
     flex: 1,
   },
-
-  // 标题输入
   titleContainer: {
     paddingHorizontal: 16,
     paddingTop: 16,
@@ -612,69 +577,21 @@ const styles = StyleSheet.create({
     color: COLORS.gray[900],
     lineHeight: 28,
   },
-
-  // 编辑器容器
   editorContainer: {
     flex: 1,
     backgroundColor: COLORS.white,
   },
 
-  // 图片预览区域
-  previewContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.gray[100],
-  },
-  imagesPreview: {
-    marginBottom: 12,
-  },
-  imageWrapper: {
-    position: 'relative',
-    marginRight: 12,
-  },
-  previewImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 8,
-    backgroundColor: COLORS.gray[100],
-  },
-  removeBtn: {
-    position: 'absolute',
-    top: -8,
-    right: -8,
-    backgroundColor: COLORS.white,
-    borderRadius: 12,
-  },
-  mediaCount: {
-    fontSize: 12,
-    color: COLORS.gray[500],
-    marginTop: 8,
-  },
-
-  // 底部固定区域容器
+  // Bottom
   bottomContainer: {
     backgroundColor: COLORS.white,
   },
-
-  // 标签展示区域（固定在工具栏上方）
   tagsDisplayArea: {
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderTopWidth: 1,
     borderTopColor: COLORS.gray[100],
     backgroundColor: COLORS.white,
-  },
-
-  // 富文本工具栏覆盖层（从屏幕底部弹出）
-  richToolbarOverlay: {
-    position: 'absolute',
-    bottom: 40,
-    left: 0,
-    right: 0,
-    backgroundColor: COLORS.white,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.gray[100],
   },
   tagsScrollContent: {
     gap: 8,
@@ -694,5 +611,15 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#0284C7',
   },
-});
 
+  // Rich Text Toolbar Overlay
+  richToolbarOverlay: {
+    position: 'absolute',
+    bottom: 40,
+    left: 0,
+    right: 0,
+    backgroundColor: COLORS.white,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.gray[100],
+  },
+});
