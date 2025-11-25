@@ -1,6 +1,6 @@
 /**
- * 鐧诲綍椤甸潰
- * 鏀寔鎵嬫満鍙?閭鐧诲綍銆佽浣忔垜銆佺涓夋柟鐧诲綍
+ * 登录页面
+ * 支持手机号 / 邮箱登录与三方占位提示
  */
 
 import { Ionicons } from '@expo/vector-icons';
@@ -9,22 +9,25 @@ import { router } from 'expo-router';
 import React, { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 import { Button, Input, Toast } from '@/src/components';
-import { useAppDispatch } from '@/src/store/hooks';
+import { useAppDispatch, useAppSelector } from '@/src/store/hooks';
 import { loginUser } from '@/src/store/slices/authSlice';
 import { loginSchema } from '@/src/utils/validation';
 
 const Login = () => {
   const dispatch = useAppDispatch();
+  const onboardingCompleted = useAppSelector(
+    (state) => state.user?.preferences?.onboarding?.completed,
+  );
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState({ visible: false, type: 'success', message: '' });
@@ -38,7 +41,6 @@ const Login = () => {
     defaultValues: {
       account: '',
       password: '',
-      rememberMe: false,
     },
   });
 
@@ -50,35 +52,34 @@ const Login = () => {
   const onSubmit = async (data) => {
     try {
       setLoading(true);
-      
+
       const loginData = {
-        account: data.account,
+        account: data.account.trim(),
         password: data.password,
+        rememberMe,
       };
 
-      const result = await dispatch(loginUser(loginData)).unwrap();
-      
-      showToast('success', '鐧诲綍鎴愬姛锛?);
-      
-      // 寤惰繜璺宠浆锛岃鐢ㄦ埛鐪嬪埌鎻愮ず
+      await dispatch(loginUser(loginData)).unwrap();
+
+      showToast('success', '登录成功！');
+
+      // 延迟跳转以展示提示
       setTimeout(() => {
-        // 鏍规嵁寮曞瀹屾垚鐘舵€佽烦杞?
         if (onboardingCompleted) {
           router.replace('/(tabs)');
         } else {
           router.replace('/(auth)/interests');
         }
-      }, 1000);
-      
+      }, 800);
     } catch (error) {
-      showToast('error', error?.message);
+      showToast('error', error?.message || '登录失败，请稍后再试');
     } finally {
       setLoading(false);
     }
   };
 
   const handleThirdPartyLogin = (provider) => {
-    showToast('info', `${provider}鐧诲綍鍔熻兘鍗冲皢寮€鏀綻);
+    showToast('info', `${provider} 登录功能暂未开放`);
   };
 
   return (
@@ -91,18 +92,18 @@ const Login = () => {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Logo 鍜屾爣棰?*/}
+        {/* Logo 与标题 */}
         <View style={styles.header}>
           <View style={styles.logoContainer}>
             <Ionicons name="earth" size={60} color="#0066FF" />
           </View>
-          <Text style={styles.title}>娆㈣繋鍥炴潵</Text>
-          <Text style={styles.subtitle}>鐧诲綍浣犵殑 GoAbroad 璐﹀彿</Text>
+          <Text style={styles.title}>欢迎回来</Text>
+          <Text style={styles.subtitle}>登录你的 GoAbroad 账号</Text>
         </View>
 
-        {/* 琛ㄥ崟 */}
+        {/* 表单 */}
         <View style={styles.form}>
-          {/* 璐﹀彿杈撳叆 */}
+          {/* 账号输入 */}
           <View style={styles.inputContainer}>
             <Controller
               control={control}
@@ -111,7 +112,7 @@ const Login = () => {
                 <Input
                   value={value}
                   onChangeText={onChange}
-                  placeholder="鎵嬫満鍙锋垨閭"
+                  placeholder="手机号或邮箱"
                   prefixIcon={<Ionicons name="person-outline" size={20} color="#999" />}
                   error={!!errors.account}
                   errorMessage={errors.account?.message}
@@ -121,7 +122,7 @@ const Login = () => {
             />
           </View>
 
-          {/* 瀵嗙爜杈撳叆 */}
+          {/* 密码输入 */}
           <View style={styles.inputContainer}>
             <Controller
               control={control}
@@ -130,7 +131,7 @@ const Login = () => {
                 <Input
                   value={value}
                   onChangeText={onChange}
-                  placeholder="瀵嗙爜"
+                  placeholder="密码"
                   type="password"
                   prefixIcon={<Ionicons name="lock-closed-outline" size={20} color="#999" />}
                   error={!!errors.password}
@@ -140,7 +141,7 @@ const Login = () => {
             />
           </View>
 
-          {/* 璁颁綇鎴?& 蹇樿瀵嗙爜 */}
+          {/* 记住我 & 忘记密码 */}
           <View style={styles.optionsRow}>
             <TouchableOpacity
               style={styles.rememberMe}
@@ -149,32 +150,32 @@ const Login = () => {
               <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
                 {rememberMe && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
               </View>
-              <Text style={styles.rememberMeText}>璁颁綇鎴?/Text>
+              <Text style={styles.rememberMeText}>记住我</Text>
             </TouchableOpacity>
 
             <TouchableOpacity onPress={() => router.push('/(auth)/forgot-password')}>
-              <Text style={styles.forgotPassword}>蹇樿瀵嗙爜锛?/Text>
+              <Text style={styles.forgotPassword}>忘记密码？</Text>
             </TouchableOpacity>
           </View>
 
-          {/* 鐧诲綍鎸夐挳 */}
+          {/* 登录按钮 */}
           <Button
             fullWidth
             onPress={handleSubmit(onSubmit)}
             loading={loading}
             style={styles.loginButton}
           >
-            鐧诲綍
+            登录
           </Button>
 
-          {/* 鍒嗛殧绾?*/}
+          {/* 分隔线 */}
           <View style={styles.divider}>
             <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>鎴?/Text>
+            <Text style={styles.dividerText}>或</Text>
             <View style={styles.dividerLine} />
           </View>
 
-          {/* 绗笁鏂圭櫥褰?*/}
+          {/* 第三方登录 */}
           <View style={styles.thirdPartyContainer}>
             <TouchableOpacity
               style={styles.thirdPartyButton}
@@ -185,9 +186,9 @@ const Login = () => {
 
             <TouchableOpacity
               style={styles.thirdPartyButton}
-              onPress={() => handleThirdPartyLogin('寰俊')}
+              onPress={() => handleThirdPartyLogin('微信')}
             >
-              <Ionicons name="logo-wechat" size={32} color="#07C160" />
+              <Ionicons name="chatbubble-ellipses-outline" size={28} color="#07C160" />
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -195,22 +196,22 @@ const Login = () => {
               onPress={() => handleThirdPartyLogin('QQ')}
             >
               <View style={styles.qqIcon}>
-                <Ionicons name="chatbubble" size={32} color="#12B7F5" />
+                <Ionicons name="chatbubble" size={28} color="#12B7F5" />
               </View>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* 娉ㄥ唽閾炬帴 */}
+        {/* 注册链接 */}
         <View style={styles.footer}>
-          <Text style={styles.footerText}>杩樻病璐﹀彿锛?/Text>
+          <Text style={styles.footerText}>还没有账号？</Text>
           <TouchableOpacity onPress={() => router.push('/(auth)/register')}>
-            <Text style={styles.registerLink}>绔嬪嵆娉ㄥ唽 鈫?/Text>
+            <Text style={styles.registerLink}>立即注册 →</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
 
-      {/* Toast 鎻愮ず */}
+      {/* Toast 提示 */}
       <Toast
         visible={toast.visible}
         type={toast.type}

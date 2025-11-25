@@ -11,8 +11,8 @@ import { Provider } from 'react-redux';
 import { PersistGate } from 'redux-persist/integration/react';
 
 import { persistor, store } from '@/src/store';
-// 导入 API 拦截器以确保其被初始化
-import '@/src/services/api/interceptors';
+// 导入 API 核心以确保拦截器被初始化
+import '@/src/services/api';
 
 // 防止自动隐藏启动屏
 SplashScreen.preventAutoHideAsync();

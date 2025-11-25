@@ -3,7 +3,8 @@
  * 管理用户登录状态、token、用户信息等
  */
 
-import { authApi, setAuthToken } from '@/src/services/api';
+import { authApi } from '@/src/services/api';
+import { setAuthToken } from '@/src/utils/token';
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 
 // 初始状态

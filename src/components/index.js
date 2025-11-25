@@ -1,8 +1,5 @@
-/**
- * 组件库统一导出
- * 方便从一个地方导入所有组件
- */
+export { default as Button } from './Button';
+export { default as Input } from './Input';
+export { default as Toast } from './Toast';
 
-// 仅保留基础 UI 组件用于认证流程
-export * from './ui';
 

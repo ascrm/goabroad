@@ -1,23 +1,21 @@
-/**
- * GoAbroad Redux Store 閰嶇疆锛堢簿绠€鐗堬級
- */
-
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { combineReducers, configureStore } from '@reduxjs/toolkit';
 import { persistReducer, persistStore } from 'redux-persist';
 
-import authSlice from './slices/authSlice';
-import userSlice from './slices/userSlice';
+import { injectStore } from '@/src/services/api';
+import authReducer from './slices/authSlice';
+import userReducer from './slices/userSlice';
 
 const rootReducer = combineReducers({
-  auth: authSlice,
-  user: userSlice,
+  auth: authReducer,
+  user: userReducer,
 });
 
 const persistConfig = {
   key: 'root',
   storage: AsyncStorage,
   whitelist: ['auth', 'user'],
+  version: 1,
 };
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);
@@ -26,20 +24,15 @@ export const store = configureStore({
   reducer: persistedReducer,
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
-      serializableCheck: {
-        ignoredActions: [
-          'persist/PERSIST',
-          'persist/REHYDRATE',
-          'persist/PAUSE',
-          'persist/PURGE',
-          'persist/REGISTER',
-          'persist/FLUSH',
-        ],
-        ignoredPaths: ['register', 'rehydrate'],
-      },
-      immutableCheck: __DEV__,
+      serializableCheck: false,
+      immutableCheck: false,
     }),
-  devTools: __DEV__,
 });
 
+injectStore(store);
+
 export const persistor = persistStore(store);
+
+export const RootState = store.getState;
+export const AppDispatch = store.dispatch;
+

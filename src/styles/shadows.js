@@ -1,190 +1,113 @@
 /**
- * GoAbroad 阴影系统
- * 适配 React Native 的阴影样式
+ * Shadow and elevation presets for the design system.
+ * Values combine web-style shadow strings (for RN web) and elevation numbers (for native).
  */
 
-import { Platform } from 'react-native';
+const createShadow = ({ android, ios, web }) => ({
+  android, // elevation
+  ios,     // shadow style for iOS
+  web,     // fallback string for RN web
+});
 
-/**
- * 创建跨平台阴影样式
- * iOS 使用 shadowColor, shadowOffset, shadowOpacity, shadowRadius
- * Android 使用 elevation
- */
-const createShadow = (elevation, shadowColor = '#000000') => {
-  if (Platform.OS === 'ios') {
-    // iOS 阴影配置
-    const shadowOpacity = elevation * 0.015; // 根据高度调整透明度
-    const shadowRadius = elevation * 0.5;     // 根据高度调整模糊半径
-    
-    return {
-      shadowColor,
-      shadowOffset: {
-        width: 0,
-        height: elevation * 0.25, // 根据高度调整偏移
-      },
-      shadowOpacity: Math.min(shadowOpacity, 0.3), // 最大透明度 0.3
-      shadowRadius: Math.max(shadowRadius, 1),     // 最小半径 1
-    };
-  }
-  
-  // Android 阴影配置
-  return {
-    elevation,
-  };
-};
-
-// 阴影级别
 export const shadows = {
-  // 无阴影
-  none: {
-    shadowColor: 'transparent',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0,
-    shadowRadius: 0,
-    elevation: 0,
-  },
-
-  // 小阴影 - 用于小按钮、标签
-  sm: createShadow(2),
-
-  // 中等阴影 - 用于卡片、按钮
-  md: createShadow(4),
-
-  // 大阴影 - 用于悬浮卡片、弹出菜单
-  lg: createShadow(8),
-
-  // 超大阴影 - 用于模态框、抽屉
-  xl: createShadow(12),
-
-  // 特大阴影 - 用于全屏模态框
-  '2xl': createShadow(16),
-
-  // 极大阴影 - 用于强调的浮动元素
-  '3xl': createShadow(24),
+  none: createShadow({
+    android: 0,
+    ios: {
+      shadowColor: 'transparent',
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0,
+      shadowRadius: 0,
+    },
+    web: 'none',
+  }),
+  xs: createShadow({
+    android: 1,
+    ios: {
+      shadowColor: '#0F172A',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.08,
+      shadowRadius: 1,
+    },
+    web: '0 1px 2px rgba(15, 23, 42, 0.08)',
+  }),
+  sm: createShadow({
+    android: 2,
+    ios: {
+      shadowColor: '#0F172A',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 2.5,
+    },
+    web: '0 2px 4px rgba(15, 23, 42, 0.1)',
+  }),
+  md: createShadow({
+    android: 4,
+    ios: {
+      shadowColor: '#0F172A',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.12,
+      shadowRadius: 5,
+    },
+    web: '0 4px 10px rgba(15, 23, 42, 0.12)',
+  }),
+  lg: createShadow({
+    android: 8,
+    ios: {
+      shadowColor: '#0F172A',
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.15,
+      shadowRadius: 12,
+    },
+    web: '0 10px 30px rgba(15, 23, 42, 0.15)',
+  }),
+  xl: createShadow({
+    android: 12,
+    ios: {
+      shadowColor: '#0F172A',
+      shadowOffset: { width: 0, height: 18 },
+      shadowOpacity: 0.2,
+      shadowRadius: 20,
+    },
+    web: '0 18px 45px rgba(15, 23, 42, 0.2)',
+  }),
 };
 
-// 特殊用途阴影
-export const specialShadows = {
-  // 按钮按下状态（阴影减弱）
-  buttonPressed: createShadow(1),
-  
-  // 卡片悬停状态（阴影加强）
-  cardHover: createShadow(6),
-  
-  // 底部导航栏阴影（向上投射）
-  bottomBar: Platform.OS === 'ios' ? {
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  } : {
-    elevation: 8,
-  },
-  
-  // 顶部导航栏阴影（向下投射）
-  topBar: Platform.OS === 'ios' ? {
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  } : {
-    elevation: 4,
-  },
-
-  // 浮动操作按钮（FAB）
-  fab: createShadow(6),
-
-  // 下拉菜单
-  dropdown: createShadow(8),
-
-  // 对话框
-  dialog: createShadow(16),
-
-  // 抽屉
-  drawer: Platform.OS === 'ios' ? {
-    shadowColor: '#000000',
-    shadowOffset: { width: 2, height: 0 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-  } : {
-    elevation: 16,
-  },
-};
-
-// 内阴影效果（通过边框模拟，React Native 不支持真正的 inset shadow）
 export const innerShadows = {
-  sm: {
-    borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.05)',
-  },
-  md: {
-    borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.1)',
-  },
-  lg: {
-    borderWidth: 2,
-    borderColor: 'rgba(0, 0, 0, 0.15)',
-  },
+  subtle: 'inset 0 1px 2px rgba(15, 23, 42, 0.12)',
+  medium: 'inset 0 2px 6px rgba(15, 23, 42, 0.16)',
+  strong: 'inset 0 4px 12px rgba(15, 23, 42, 0.2)',
 };
 
-// 光晕效果（用于聚焦状态）
 export const glows = {
-  primary: Platform.OS === 'ios' ? {
-    shadowColor: '#2563EB',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-  } : {
-    elevation: 4,
-  },
-  
-  success: Platform.OS === 'ios' ? {
-    shadowColor: '#16A34A',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-  } : {
-    elevation: 4,
-  },
-  
-  warning: Platform.OS === 'ios' ? {
-    shadowColor: '#EA580C',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-  } : {
-    elevation: 4,
-  },
-  
-  error: Platform.OS === 'ios' ? {
-    shadowColor: '#DC2626',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-  } : {
-    elevation: 4,
-  },
+  primary: '0 0 25px rgba(0, 102, 255, 0.35)',
+  success: '0 0 20px rgba(16, 185, 129, 0.35)',
+  warning: '0 0 20px rgba(251, 191, 36, 0.35)',
+  danger: '0 0 20px rgba(239, 68, 68, 0.35)',
 };
 
-// 组件阴影映射
+export const specialShadows = {
+  floating: '0 15px 35px rgba(15, 23, 42, 0.18)',
+  popover: '0 25px 45px rgba(15, 23, 42, 0.22)',
+  dropdown: '0 12px 25px rgba(15, 23, 42, 0.18)',
+  card: '0 8px 20px rgba(15, 23, 42, 0.12)',
+};
+
 export const componentShadows = {
   card: shadows.md,
+  modal: shadows.lg,
   button: shadows.sm,
-  floatingButton: shadows.lg,
-  modal: shadows['2xl'],
-  dropdown: specialShadows.dropdown,
-  navbar: specialShadows.topBar,
-  tabBar: specialShadows.bottomBar,
-  drawer: specialShadows.drawer,
+  input: shadows.xs,
+  floatingAction: specialShadows.floating,
+  tooltip: shadows.xs,
 };
 
-// 导出所有阴影配置
-export default {
+const shadowsConfig = {
   shadows,
-  specialShadows,
   innerShadows,
   glows,
+  specialShadows,
   componentShadows,
-  createShadow,
 };
+
+export default shadowsConfig;
 
