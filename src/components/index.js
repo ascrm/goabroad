@@ -3,12 +3,6 @@
  * 方便从一个地方导入所有组件
  */
 
-// UI 组件
+// 仅保留基础 UI 组件用于认证流程
 export * from './ui';
-
-// 表单组件
-export * from './form';
-
-// 布局组件
-export * from './layout';
 

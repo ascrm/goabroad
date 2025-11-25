@@ -119,9 +119,9 @@ const Register = () => {
       
       showToast('success', '注册成功！');
       
-      // 注册成功后跳转到引导页面
+      // 注册成功后跳转到登录页面
       setTimeout(() => {
-        router.replace('/(auth)/interests');
+        router.replace('/(auth)/login');
       }, 1500);
       
     } catch (error) {
