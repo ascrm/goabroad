@@ -1,6 +1,6 @@
 /**
  * 注册页面
- * 支持手机号注册、验证码验证、密码强度检测
+ * 支持手机号注册、验证码验证
  */
 
 import { Ionicons } from '@expo/vector-icons';
@@ -17,12 +17,13 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button, Input, Toast } from '@/src/components';
+import { useAppDispatch } from '@/src/hooks/auth';
 import { authApi } from '@/src/services/api';
-import { useAppDispatch } from '@/src/store/hooks';
 import { registerUser } from '@/src/store/slices/authSlice';
-import { checkPasswordStrength, registerSchema } from '@/src/utils/validation';
+import { registerSchema } from '@/src/utils/validation';
 
 const Register = () => {
   const dispatch = useAppDispatch();
@@ -34,9 +35,6 @@ const Register = () => {
   const [countdown, setCountdown] = useState(0);
   const [canSendCode, setCanSendCode] = useState(true);
   
-  // 密码强度
-  const [passwordStrength, setPasswordStrength] = useState({ strength: 0, text: '', color: '#CCCCCC' });
-
   const {
     control,
     handleSubmit,
@@ -53,13 +51,6 @@ const Register = () => {
   });
 
   const phone = watch('phone');
-  const password = watch('password');
-
-  // 监听密码变化，更新强度
-  useEffect(() => {
-    const strength = checkPasswordStrength(password);
-    setPasswordStrength(strength);
-  }, [password]);
 
   // 倒计时
   useEffect(() => {
@@ -132,231 +123,215 @@ const Register = () => {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView
+        style={styles.keyboard}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-          >
-            <Ionicons name="arrow-back" size={24} color="#333333" />
-          </TouchableOpacity>
-          <Text style={styles.title}>创建账号</Text>
-          <Text style={styles.subtitle}>加入 GoAbroad，开启留学之旅</Text>
-        </View>
-
-        {/* 表单 */}
-        <View style={styles.form}>
-          {/* 手机号 */}
-          <View style={styles.inputContainer}>
-            <Controller
-              control={control}
-              name="phone"
-              render={({ field: { onChange, value } }) => (
-                <Input
-                  value={value}
-                  onChangeText={onChange}
-                  placeholder="手机号"
-                  keyboardType="phone-pad"
-                  prefixIcon={<Ionicons name="phone-portrait-outline" size={20} color="#999" />}
-                  error={!!errors.phone}
-                  errorMessage={errors.phone?.message}
-                  clearable
-                />
-              )}
-            />
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {/* 顶部标题 */}
+          <View style={styles.header}>
+            <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+              <Ionicons name="chevron-back" size={24} color="#111827" />
+            </TouchableOpacity>
+            <Text style={styles.title}>创建账号</Text>
+            <Text style={styles.subtitle}>注册您的 GoAbroad 账号</Text>
           </View>
 
-          {/* 验证码 */}
-          <View style={styles.inputContainer}>
-            <View style={styles.codeInputRow}>
-              <View style={styles.codeInput}>
-                <Controller
-                  control={control}
-                  name="verifyCode"
-                  render={({ field: { onChange, value } }) => (
-                    <Input
-                      value={value}
-                      onChangeText={onChange}
-                      placeholder="验证码"
-                      keyboardType="number-pad"
-                      maxLength={6}
-                      prefixIcon={<Ionicons name="shield-checkmark-outline" size={20} color="#999" />}
-                      error={!!errors.verifyCode}
-                      errorMessage={errors.verifyCode?.message}
-                    />
-                  )}
-                />
-              </View>
-              <TouchableOpacity
-                style={[
-                  styles.sendCodeButton,
-                  !canSendCode && styles.sendCodeButtonDisabled,
-                ]}
-                onPress={handleSendCode}
-                disabled={!canSendCode}
-              >
-                <Text style={[
-                  styles.sendCodeText,
-                  !canSendCode && styles.sendCodeTextDisabled,
-                ]}>
-                  {countdown > 0 ? `${countdown}秒` : '获取验证码'}
-                </Text>
-              </TouchableOpacity>
+          {/* 表单卡片 */}
+          <View style={styles.card}>
+
+            {/* 手机号 */}
+            <View style={styles.inputContainer}>
+              <Controller
+                control={control}
+                name="phone"
+                render={({ field: { onChange, value } }) => (
+                  <Input
+                    value={value}
+                    onChangeText={onChange}
+                    placeholder="手机号"
+                    keyboardType="phone-pad"
+                    prefixIcon={<Ionicons name="phone-portrait-outline" size={20} color="#999" />}
+                    error={!!errors.phone}
+                    errorMessage={errors.phone?.message}
+                    clearable
+                  />
+                )}
+              />
             </View>
-          </View>
 
-          {/* 密码 */}
-          <View style={styles.inputContainer}>
-            <Controller
-              control={control}
-              name="password"
-              render={({ field: { onChange, value } }) => (
-                <Input
-                  value={value}
-                  onChangeText={onChange}
-                  placeholder="设置密码（6-20位，含字母和数字）"
-                  type="password"
-                  prefixIcon={<Ionicons name="lock-closed-outline" size={20} color="#999" />}
-                  error={!!errors.password}
-                  errorMessage={errors.password?.message}
-                />
-              )}
-            />
-            
-            {/* 密码强度指示器 */}
-            {password && (
-              <View style={styles.passwordStrength}>
-                <View style={styles.strengthBars}>
-                  <View style={[
-                    styles.strengthBar,
-                    passwordStrength.strength >= 1 && { backgroundColor: passwordStrength.color },
-                  ]} />
-                  <View style={[
-                    styles.strengthBar,
-                    passwordStrength.strength >= 2 && { backgroundColor: passwordStrength.color },
-                  ]} />
-                  <View style={[
-                    styles.strengthBar,
-                    passwordStrength.strength >= 3 && { backgroundColor: passwordStrength.color },
-                  ]} />
+            {/* 验证码 */}
+            <View style={styles.inputContainer}>
+              <View style={styles.codeInputRow}>
+                <View style={styles.codeInput}>
+                  <Controller
+                    control={control}
+                    name="verifyCode"
+                    render={({ field: { onChange, value } }) => (
+                      <Input
+                        value={value}
+                        onChangeText={onChange}
+                        placeholder="短信验证码"
+                        keyboardType="number-pad"
+                        maxLength={6}
+                        prefixIcon={
+                          <Ionicons name="shield-checkmark-outline" size={20} color="#999" />
+                        }
+                        error={!!errors.verifyCode}
+                        errorMessage={errors.verifyCode?.message}
+                      />
+                    )}
+                  />
                 </View>
-                <Text style={[styles.strengthText, { color: passwordStrength.color }]}>
-                  密码强度：{passwordStrength.text}
-                </Text>
+                <TouchableOpacity
+                  style={[
+                    styles.sendCodeButton,
+                    !canSendCode && styles.sendCodeButtonDisabled,
+                  ]}
+                  onPress={handleSendCode}
+                  disabled={!canSendCode}
+                >
+                  <Text
+                    style={[
+                      styles.sendCodeText,
+                      !canSendCode && styles.sendCodeTextDisabled,
+                    ]}
+                  >
+                    {countdown > 0 ? `${countdown}秒` : '获取验证码'}
+                  </Text>
+                </TouchableOpacity>
               </View>
-            )}
-          </View>
-
-          {/* 确认密码 */}
-          <View style={styles.inputContainer}>
-            <Controller
-              control={control}
-              name="confirmPassword"
-              render={({ field: { onChange, value } }) => (
-                <Input
-                  value={value}
-                  onChangeText={onChange}
-                  placeholder="再次输入密码"
-                  type="password"
-                  prefixIcon={<Ionicons name="lock-closed-outline" size={20} color="#999" />}
-                  error={!!errors.confirmPassword}
-                  errorMessage={errors.confirmPassword?.message}
-                />
-              )}
-            />
-          </View>
-
-          {/* 用户协议 */}
-          <TouchableOpacity
-            style={styles.termsContainer}
-            onPress={() => setAgreedToTerms(!agreedToTerms)}
-          >
-            <View style={[styles.checkbox, agreedToTerms && styles.checkboxChecked]}>
-              {agreedToTerms && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
             </View>
-            <Text style={styles.termsText}>
-              我已阅读并同意
-              <Text style={styles.termsLink}> 用户协议 </Text>
-              和
-              <Text style={styles.termsLink}> 隐私政策</Text>
-            </Text>
-          </TouchableOpacity>
 
-          {/* 注册按钮 */}
-          <Button
-            fullWidth
-            onPress={handleSubmit(onSubmit)}
-            loading={loading}
-            style={styles.registerButton}
-          >
-            注册
-          </Button>
-        </View>
+            {/* 密码 */}
+            <View style={styles.inputContainer}>
+              <Controller
+                control={control}
+                name="password"
+                render={({ field: { onChange, value } }) => (
+                  <Input
+                    value={value}
+                    onChangeText={onChange}
+                    placeholder="设置密码（6-20位，含字母和数字）"
+                    type="password"
+                    prefixIcon={<Ionicons name="lock-closed-outline" size={20} color="#999" />}
+                    error={!!errors.password}
+                    errorMessage={errors.password?.message}
+                  />
+                )}
+              />
 
-        {/* 登录链接 */}
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>已有账号？</Text>
-          <TouchableOpacity onPress={() => router.push('/(auth)/login')}>
-            <Text style={styles.loginLink}>立即登录 →</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
+            </View>
 
-      {/* Toast 提示 */}
-      <Toast
-        visible={toast.visible}
-        type={toast.type}
-        message={toast.message}
-        onHide={() => setToast({ ...toast, visible: false })}
-      />
-    </KeyboardAvoidingView>
+            {/* 确认密码 */}
+            <View style={styles.inputContainer}>
+              <Controller
+                control={control}
+                name="confirmPassword"
+                render={({ field: { onChange, value } }) => (
+                  <Input
+                    value={value}
+                    onChangeText={onChange}
+                    placeholder="再次输入密码"
+                    type="password"
+                    prefixIcon={<Ionicons name="lock-closed-outline" size={20} color="#999" />}
+                    error={!!errors.confirmPassword}
+                    errorMessage={errors.confirmPassword?.message}
+                  />
+                )}
+              />
+            </View>
+
+            {/* 用户协议 */}
+            <TouchableOpacity
+              style={styles.termsContainer}
+              onPress={() => setAgreedToTerms(!agreedToTerms)}
+            >
+              <View style={[styles.checkbox, agreedToTerms && styles.checkboxChecked]}>
+                {agreedToTerms && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
+              </View>
+              <Text style={styles.termsText}>
+                我已阅读并同意
+                <Text style={styles.termsLink}> 用户协议 </Text>
+                和
+                <Text style={styles.termsLink}> 隐私政策</Text>
+              </Text>
+            </TouchableOpacity>
+
+            <Button
+              fullWidth
+              onPress={handleSubmit(onSubmit)}
+              loading={loading}
+              style={styles.registerButton}
+            >
+              完成注册
+            </Button>
+          </View>
+
+          {/* 底部辅助 */}
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>已有账号？</Text>
+            <TouchableOpacity onPress={() => router.push('/(auth)/login')}>
+              <Text style={styles.footerLink}>去登录</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+
+        <Toast
+          visible={toast.visible}
+          type={toast.type}
+          message={toast.message}
+          onHide={() => setToast({ ...toast, visible: false })}
+        />
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
+  keyboard: {
+    flex: 1,
+  },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingTop: 60,
-    paddingBottom: 40,
+    paddingBottom: 32,
   },
   header: {
-    marginBottom: 32,
+    paddingHorizontal: 24,
+    paddingTop: 32,
+    paddingBottom: 40,
   },
   backButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F5F5F5',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#333333',
+    fontSize: 32,
+    fontWeight: '700',
+    color: '#111827',
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: '#666666',
+    color: '#6B7280',
   },
-  form: {
-    marginBottom: 24,
+  card: {
+    marginHorizontal: 24,
+    padding: 24,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
   },
   inputContainer: {
     marginBottom: 16,
@@ -370,41 +345,22 @@ const styles = StyleSheet.create({
   },
   sendCodeButton: {
     paddingHorizontal: 16,
-    height: 48,
-    borderRadius: 8,
-    backgroundColor: '#0066FF',
+    borderRadius: 16,
+    backgroundColor: '#2563EB',
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: 110,
+    minWidth: 120,
   },
   sendCodeButtonDisabled: {
-    backgroundColor: '#E0E0E0',
+    backgroundColor: '#CBD5F5',
   },
   sendCodeText: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
     color: '#FFFFFF',
   },
   sendCodeTextDisabled: {
-    color: '#999999',
-  },
-  passwordStrength: {
-    marginTop: 8,
-  },
-  strengthBars: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 4,
-  },
-  strengthBar: {
-    flex: 1,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#E0E0E0',
-  },
-  strengthText: {
-    fontSize: 12,
-    marginTop: 4,
+    color: '#475467',
   },
   termsContainer: {
     flexDirection: 'row',
@@ -423,8 +379,8 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   checkboxChecked: {
-    backgroundColor: '#0066FF',
-    borderColor: '#0066FF',
+    backgroundColor: '#2563EB',
+    borderColor: '#2563EB',
   },
   termsText: {
     flex: 1,
@@ -433,7 +389,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   termsLink: {
-    color: '#0066FF',
+    color: '#2563EB',
     fontWeight: '500',
   },
   registerButton: {
@@ -443,16 +399,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 'auto',
+    marginTop: 32,
+    gap: 8,
   },
   footerText: {
     fontSize: 14,
-    color: '#666666',
-    marginRight: 4,
+    color: '#6B7280',
   },
-  loginLink: {
+  footerLink: {
     fontSize: 14,
-    color: '#0066FF',
+    color: '#2563EB',
     fontWeight: '600',
   },
 });

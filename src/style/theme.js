@@ -3,8 +3,8 @@
  * 集成所有设计系统配置
  */
 
-import shadowsConfig from '../styles/shadows';
 import colors from './colors';
+import shadowsConfig from './shadows';
 import spacingConfig from './spacing';
 import typography from './typography';
 
@@ -196,26 +196,26 @@ export const darkTheme = {
   colors: {
     ...colors,
     background: {
-      primary: colors.gray[900],
-      secondary: colors.gray[800],
-      tertiary: colors.gray[700],
-      dark: colors.gray[50],
+      primary: '#05060C',
+      secondary: '#0F111C',
+      tertiary: '#171B2A',
+      dark: '#F5F6F8',
     },
     text: {
-      primary: colors.gray[50],
-      secondary: colors.gray[300],
-      tertiary: colors.gray[400],
-      inverse: colors.gray[900],
-      link: colors.primary[400],
+      primary: '#F5F6FB',
+      secondary: '#9CA2BB',
+      tertiary: '#757C95',
+      inverse: '#05060C',
+      link: colors.primary[300],
       error: colors.error[400],
       success: colors.success[400],
       warning: colors.warning[400],
     },
     border: {
-      light: colors.gray[700],
-      default: colors.gray[600],
-      dark: colors.gray[500],
-      focus: colors.primary[500],
+      light: '#1F2433',
+      default: '#2B3042',
+      dark: '#3D4257',
+      focus: colors.primary[400],
     },
   },
 };

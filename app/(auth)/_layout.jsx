@@ -32,18 +32,6 @@ export default function AuthLayout() {
             title: '注册',
           }}
         />
-        <Stack.Screen
-          name="forgot-password"
-          options={{
-            title: '忘记密码',
-          }}
-        />
-        <Stack.Screen
-          name="interests"
-          options={{
-            title: '兴趣引导',
-          }}
-        />
       </Stack>
     </>
   );

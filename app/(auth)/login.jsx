@@ -17,17 +17,15 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button, Input, Toast } from '@/src/components';
-import { useAppDispatch, useAppSelector } from '@/src/store/hooks';
+import { useAppDispatch } from '@/src/hooks/auth';
 import { loginUser } from '@/src/store/slices/authSlice';
 import { loginSchema } from '@/src/utils/validation';
 
 const Login = () => {
   const dispatch = useAppDispatch();
-  const onboardingCompleted = useAppSelector(
-    (state) => state.user?.preferences?.onboarding?.completed,
-  );
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState({ visible: false, type: 'success', message: '' });
@@ -65,11 +63,7 @@ const Login = () => {
 
       // 延迟跳转以展示提示
       setTimeout(() => {
-        if (onboardingCompleted) {
-          router.replace('/(tabs)');
-        } else {
-          router.replace('/(auth)/interests');
-        }
+        router.replace('/(tabs)');
       }, 800);
     } catch (error) {
       showToast('error', error?.message || '登录失败，请稍后再试');
@@ -78,186 +72,145 @@ const Login = () => {
     }
   };
 
-  const handleThirdPartyLogin = (provider) => {
-    showToast('info', `${provider} 登录功能暂未开放`);
-  };
-
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView
+        style={styles.keyboard}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        {/* Logo 与标题 */}
-        <View style={styles.header}>
-          <View style={styles.logoContainer}>
-            <Ionicons name="earth" size={60} color="#0066FF" />
-          </View>
-          <Text style={styles.title}>欢迎回来</Text>
-          <Text style={styles.subtitle}>登录你的 GoAbroad 账号</Text>
-        </View>
-
-        {/* 表单 */}
-        <View style={styles.form}>
-          {/* 账号输入 */}
-          <View style={styles.inputContainer}>
-            <Controller
-              control={control}
-              name="account"
-              render={({ field: { onChange, value } }) => (
-                <Input
-                  value={value}
-                  onChangeText={onChange}
-                  placeholder="手机号或邮箱"
-                  prefixIcon={<Ionicons name="person-outline" size={20} color="#999" />}
-                  error={!!errors.account}
-                  errorMessage={errors.account?.message}
-                  clearable
-                />
-              )}
-            />
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {/* 顶部标题 */}
+          <View style={styles.header}>
+            <Text style={styles.title}>欢迎回来</Text>
+            <Text style={styles.subtitle}>登录您的 GoAbroad 账号</Text>
           </View>
 
-          {/* 密码输入 */}
-          <View style={styles.inputContainer}>
-            <Controller
-              control={control}
-              name="password"
-              render={({ field: { onChange, value } }) => (
-                <Input
-                  value={value}
-                  onChangeText={onChange}
-                  placeholder="密码"
-                  type="password"
-                  prefixIcon={<Ionicons name="lock-closed-outline" size={20} color="#999" />}
-                  error={!!errors.password}
-                  errorMessage={errors.password?.message}
-                />
-              )}
-            />
-          </View>
+          {/* 表单卡片 */}
+          <View style={styles.card}>
 
-          {/* 记住我 & 忘记密码 */}
-          <View style={styles.optionsRow}>
-            <TouchableOpacity
-              style={styles.rememberMe}
-              onPress={() => setRememberMe(!rememberMe)}
+            {/* 账号输入 */}
+            <View style={styles.inputContainer}>
+              <Controller
+                control={control}
+                name="account"
+                render={({ field: { onChange, value } }) => (
+                  <Input
+                    value={value}
+                    onChangeText={onChange}
+                    placeholder="手机号或邮箱"
+                    prefixIcon={<Ionicons name="person-outline" size={20} color="#999" />}
+                    error={!!errors.account}
+                    errorMessage={errors.account?.message}
+                    clearable
+                  />
+                )}
+              />
+            </View>
+
+            {/* 密码输入 */}
+            <View style={styles.inputContainer}>
+              <Controller
+                control={control}
+                name="password"
+                render={({ field: { onChange, value } }) => (
+                  <Input
+                    value={value}
+                    onChangeText={onChange}
+                    placeholder="密码"
+                    type="password"
+                    prefixIcon={<Ionicons name="lock-closed-outline" size={20} color="#999" />}
+                    error={!!errors.password}
+                    errorMessage={errors.password?.message}
+                  />
+                )}
+              />
+            </View>
+
+            {/* 记住我 & 忘记密码 */}
+            <View style={styles.optionsRow}>
+              <TouchableOpacity
+                style={styles.rememberMe}
+                onPress={() => setRememberMe(!rememberMe)}
+              >
+                <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
+                  {rememberMe && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
+                </View>
+                <Text style={styles.rememberMeText}>记住我</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={() => router.push('/(auth)/forgot-password')}>
+                <Text style={styles.forgotPassword}>忘记密码？</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Button
+              fullWidth
+              onPress={handleSubmit(onSubmit)}
+              loading={loading}
+              style={styles.loginButton}
             >
-              <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
-                {rememberMe && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
-              </View>
-              <Text style={styles.rememberMeText}>记住我</Text>
-            </TouchableOpacity>
+              登录
+            </Button>
+          </View>
 
-            <TouchableOpacity onPress={() => router.push('/(auth)/forgot-password')}>
-              <Text style={styles.forgotPassword}>忘记密码？</Text>
+          {/* 注册引导 */}
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>还没有账号？</Text>
+            <TouchableOpacity onPress={() => router.push('/(auth)/register')}>
+              <Text style={styles.footerLink}>立即注册</Text>
             </TouchableOpacity>
           </View>
 
-          {/* 登录按钮 */}
-          <Button
-            fullWidth
-            onPress={handleSubmit(onSubmit)}
-            loading={loading}
-            style={styles.loginButton}
-          >
-            登录
-          </Button>
+        </ScrollView>
 
-          {/* 分隔线 */}
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>或</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          {/* 第三方登录 */}
-          <View style={styles.thirdPartyContainer}>
-            <TouchableOpacity
-              style={styles.thirdPartyButton}
-              onPress={() => handleThirdPartyLogin('Apple')}
-            >
-              <Ionicons name="logo-apple" size={32} color="#000000" />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.thirdPartyButton}
-              onPress={() => handleThirdPartyLogin('微信')}
-            >
-              <Ionicons name="chatbubble-ellipses-outline" size={28} color="#07C160" />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.thirdPartyButton}
-              onPress={() => handleThirdPartyLogin('QQ')}
-            >
-              <View style={styles.qqIcon}>
-                <Ionicons name="chatbubble" size={28} color="#12B7F5" />
-              </View>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* 注册链接 */}
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>还没有账号？</Text>
-          <TouchableOpacity onPress={() => router.push('/(auth)/register')}>
-            <Text style={styles.registerLink}>立即注册 →</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-
-      {/* Toast 提示 */}
-      <Toast
-        visible={toast.visible}
-        type={toast.type}
-        message={toast.message}
-        onHide={() => setToast({ ...toast, visible: false })}
-      />
-    </KeyboardAvoidingView>
+        {/* Toast 提示 */}
+        <Toast
+          visible={toast.visible}
+          type={toast.type}
+          message={toast.message}
+          onHide={() => setToast({ ...toast, visible: false })}
+        />
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
+  keyboard: {
+    flex: 1,
+  },
   scrollContent: {
     flexGrow: 1,
+    paddingBottom: 32,
+  },
+  header: {
     paddingHorizontal: 24,
     paddingTop: 60,
     paddingBottom: 40,
   },
-  header: {
-    alignItems: 'center',
-    marginBottom: 40,
-  },
-  logoContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#F0F7FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 24,
-  },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#333333',
+    fontSize: 32,
+    fontWeight: '700',
+    color: '#111827',
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: '#666666',
+    color: '#6B7280',
   },
-  form: {
-    marginBottom: 32,
+  card: {
+    marginHorizontal: 24,
+    padding: 24,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
   },
   inputContainer: {
     marginBottom: 16,
@@ -283,8 +236,8 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   checkboxChecked: {
-    backgroundColor: '#0066FF',
-    borderColor: '#0066FF',
+    backgroundColor: '#2563EB',
+    borderColor: '#2563EB',
   },
   rememberMeText: {
     fontSize: 14,
@@ -292,57 +245,26 @@ const styles = StyleSheet.create({
   },
   forgotPassword: {
     fontSize: 14,
-    color: '#0066FF',
+    color: '#2563EB',
     fontWeight: '500',
   },
   loginButton: {
-    marginBottom: 24,
-  },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#E0E0E0',
-  },
-  dividerText: {
-    marginHorizontal: 16,
-    fontSize: 14,
-    color: '#999999',
-  },
-  thirdPartyContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 24,
-  },
-  thirdPartyButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#F5F5F5',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  qqIcon: {
-    transform: [{ rotate: '-15deg' }],
+    marginTop: 8,
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 'auto',
+    marginTop: 32,
+    gap: 8,
   },
   footerText: {
     fontSize: 14,
-    color: '#666666',
-    marginRight: 4,
+    color: '#6B7280',
   },
-  registerLink: {
+  footerLink: {
     fontSize: 14,
-    color: '#0066FF',
+    color: '#2563EB',
     fontWeight: '600',
   },
 });

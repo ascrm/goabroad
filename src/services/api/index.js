@@ -9,13 +9,9 @@
 import axios from 'axios';
 
 import ENV_CONFIG from '@/src/config/env';
-import { clearAuthToken, getAuthToken } from '@/src/utils/token';
+import { setupApiInterceptors } from './interceptor';
 import createAuthModule from './modules/auth';
-
-let storeRef;
-export const injectStore = (providedStore) => {
-  storeRef = providedStore;
-};
+import createUserModule from './modules/user';
 
 /**
  * Axios 基础配置
@@ -42,75 +38,23 @@ export const removeDefaultHeader = (key) => {
   delete apiClient.defaults.headers.common[key];
 };
 
-/**
- * Axios 拦截器
- */
-let interceptorsInitialized = false;
-
-const attachRequestInterceptor = () => {
-  apiClient.interceptors.request.use(
-    async (config) => {
-      try {
-        const token = await getAuthToken();
-        if (token) {
-          config.headers = {
-            ...(config.headers || {}),
-            satoken: token,
-          };
-        }
-      } catch (error) {
-        console.warn('[API] 读取 token 失败:', error);
-      }
-
-      return config;
-    },
-    (error) => Promise.reject(error),
-  );
-};
-
-const attachResponseInterceptor = () => {
-  apiClient.interceptors.response.use(
-    (response) => response,
-    async (error) => {
-      const status = error?.response?.status;
-
-      if (status === 401 || status === 403) {
-        console.warn('[API] 认证失效，清除本地状态');
-        await clearAuthToken();
-        if (storeRef) {
-          storeRef.dispatch({ type: 'auth/clearAuth' });
-        } else {
-          console.warn('[API] store 未注入，无法派发清除认证动作');
-        }
-      }
-
-      return Promise.reject(error);
-    },
-  );
-};
-
-export const setupApiInterceptors = () => {
-  if (interceptorsInitialized) {
-    return;
-  }
-
-  attachRequestInterceptor();
-  attachResponseInterceptor();
-  interceptorsInitialized = true;
-};
-
-setupApiInterceptors();
+setupApiInterceptors(apiClient);
 
 /**
  * 模块聚合
  */
 const authApi = createAuthModule({ apiClient });
+const userApi = createUserModule({ apiClient });
+
+export { injectStore } from './interceptor';
+export { authApi, userApi };
 
 export const auth = authApi;
-export { authApi };
+export const user = userApi;
 
 export const api = {
   auth: authApi,
+  user: userApi,
 };
 
 export default api;

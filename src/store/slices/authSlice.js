@@ -4,7 +4,7 @@
  */
 
 import { authApi } from '@/src/services/api';
-import { setAuthToken } from '@/src/utils/token';
+import { clearAuthToken, setAuthToken } from '@/src/utils/token';
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 
 // 初始状态
@@ -234,6 +234,9 @@ const authSlice = createSlice({
         state.tokenExpiry = null;
         state.loginMethod = null;
         state.error = null;
+        
+        // 清除 token 存储
+        clearAuthToken();
       })
       .addCase(logoutUser.rejected, (state, action) => {
         // 即使后端登出失败，前端也要清除状态
@@ -246,6 +249,9 @@ const authSlice = createSlice({
         state.tokenExpiry = null;
         state.loginMethod = null;
         state.error = action.payload;
+        
+        // 清除 token 存储
+        clearAuthToken();
       })
       
       // 刷新 token

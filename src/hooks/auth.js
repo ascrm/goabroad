@@ -19,4 +19,3 @@ export const useUserInfo = () => {
 };
 
 export const useUserProfile = () => useAppSelector((state) => state.user.profile);
-export const useUserPreferences = () => useAppSelector((state) => state.user.preferences);

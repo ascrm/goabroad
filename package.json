@@ -4,10 +4,8 @@
   "version": "1.0.0",
   "scripts": {
     "start": "expo start",
-    "start:clear": "expo start -c --offline",
-    "start:clear-cache": "expo start -c",
+    "start:clear": "expo start --clear", 
     "start:offline": "expo start --offline",
-    "clear": "expo start -c --offline",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",

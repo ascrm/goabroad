@@ -7,9 +7,12 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import React, { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Provider } from 'react-redux';
 import { PersistGate } from 'redux-persist/integration/react';
 
+import { ThemeProvider } from '@/src/context/ThemeContext';
 import { persistor, store } from '@/src/store';
 // 导入 API 核心以确保拦截器被初始化
 import '@/src/services/api';
@@ -53,7 +56,15 @@ export default function RootLayout() {
         }
         persistor={persistor}
       >
-        <RootNavigator />
+        <ThemeProvider>
+          <GestureHandlerRootView style={{ flex: 1 }}>
+            <SafeAreaProvider>
+              <View style={{ flex: 1 }}>
+                <RootNavigator />
+              </View>
+            </SafeAreaProvider>
+          </GestureHandlerRootView>
+        </ThemeProvider>
       </PersistGate>
     </Provider>
   );
@@ -83,12 +94,15 @@ function RootNavigator() {
         }}
       />
 
-      {/* 其他模块 */}
-      <Stack.Screen name="country" options={{ headerShown: false }} />
-      <Stack.Screen name="planning" options={{ headerShown: false }} />
-      <Stack.Screen name="community" options={{ headerShown: false }} />
-      <Stack.Screen name="tools" options={{ headerShown: false }} />
-      <Stack.Screen name="profile" options={{ headerShown: false }} />
+      {/* 独立流程 */}
+      <Stack.Screen name="(pages)/planner/goal-setting" options={{ headerShown: false }} />
+      <Stack.Screen name="(pages)/planner/loading" options={{ headerShown: false }} />
+      <Stack.Screen name="(pages)/planner/preview" options={{ headerShown: false }} />
+
+      {/* 个人中心扩展页面 */}
+      <Stack.Screen name="(pages)/profile/profile-detail" options={{ headerShown: false }} />
+      <Stack.Screen name="(pages)/profile/account" options={{ headerShown: false }} />
+      <Stack.Screen name="(pages)/profile/settings" options={{ headerShown: false }} />
     </Stack>
   );
 }

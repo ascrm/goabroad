@@ -87,31 +87,31 @@ export const gray = {
   50: '#F9FAFB',  // 最浅背景
 };
 
-// 背景色
+// 背景色（默认日间）
 export const background = {
-  primary: '#FFFFFF',
-  secondary: gray[50],
-  tertiary: gray[100],
-  dark: gray[900],
+  primary: '#F5F6F8',
+  secondary: '#FFFFFF',
+  tertiary: '#EBEDF2',
+  dark: '#0B0D13',
 };
 
-// 文本色
+// 文本色（默认日间）
 export const text = {
-  primary: gray[900],
-  secondary: gray[600],
-  tertiary: gray[400],
+  primary: '#0B0D13',
+  secondary: '#4E5565',
+  tertiary: '#7A8094',
   inverse: '#FFFFFF',
-  link: primary[600],
+  link: primary[700],
   error: error[600],
   success: success[600],
   warning: warning[600],
 };
 
-// 边框色
+// 边框色（默认日间）
 export const border = {
-  light: gray[200],
-  default: gray[300],
-  dark: gray[400],
+  light: '#E3E5ED',
+  default: '#D5D8E2',
+  dark: '#B9BDCD',
   focus: primary[600],
 };
 

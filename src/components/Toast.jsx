@@ -8,15 +8,24 @@ const TYPE_COLOR_MAP = {
   warning: '#F97316',
 };
 
-const Toast = ({ visible, type = 'info', message = '', onHide }) => {
+const Toast = ({
+  visible,
+  type = 'info',
+  message = '',
+  onHide,
+  position = 'top',
+  offset = 32,
+}) => {
   if (!visible) {
     return null;
   }
 
   const backgroundColor = TYPE_COLOR_MAP[type] || TYPE_COLOR_MAP.info;
+  const isTop = position === 'top';
+  const placementStyle = isTop ? { top: offset } : { bottom: offset };
 
   return (
-    <View pointerEvents="box-none" style={styles.container}>
+    <View pointerEvents="box-none" style={[styles.container, placementStyle]}>
       <TouchableOpacity
         accessibilityRole="alert"
         activeOpacity={0.9}
@@ -32,7 +41,6 @@ const Toast = ({ visible, type = 'info', message = '', onHide }) => {
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    bottom: 32,
     left: 0,
     right: 0,
     alignItems: 'center',

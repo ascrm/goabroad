@@ -9,8 +9,8 @@ const ENV = __DEV__ ? 'development' : 'production';
 // 各环境配置
 const config = {
   development: {
-    API_URL: 'http://192.168.31.183:8080/api',
-    WS_URL: 'ws://192.168.31.183:8080',
+    API_URL: `http://192.168.1.5:8080/api`,
+    // WS_URL: `ws://172.20.10.3:8080`,
     TIMEOUT: 30000,
   },
   production: {
